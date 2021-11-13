@@ -1,0 +1,28 @@
+[
+  {
+    "name": "parent-name",
+    "children": [
+      {
+        "name": "child-1",
+        "value": 100
+      },
+      {
+        "name": "child-2",
+        "value": 99
+      }
+    ]
+  },
+  {
+    "name": "parent-name-2",
+    "children": [
+      {
+        "name": "child-4",
+        "value": 70065
+      },
+      {
+        "name": "child-2",
+        "value": 10
+      }
+    ]
+  }
+]
