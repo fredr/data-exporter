@@ -16,6 +16,7 @@ async fn main() -> std::io::Result<()> {
     let opts = Opts::parse();
 
     let prometheus = PrometheusMetricsBuilder::new("data_exporter")
+        .registry(prometheus::default_registry().clone())
         .endpoint("/metrics")
         .build()
         .unwrap();
