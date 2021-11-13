@@ -83,25 +83,3 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
 
     Ok(crate::DataMetrics { probes })
 }
-
-/*
-    DataMetrics::new(vec![Probe {
-        target: String::from("http://0.0.0.0:8000/file.json"),
-        pipeline_stages: vec![Box::new(JqStep {
-            expression: String::from(
-                "[.[] | {parent: .name} + (.children[] | {name: .name, val: .value})]",
-            ),
-        })],
-        parser: Box::new(JsonParser {}),
-        metric: MetricConfig::new(
-            String::from("metric_name"),
-            String::from("help text is here"),
-            HashMap::from([
-                (String::from("parent"), String::from("parent")),
-                (String::from("name"), String::from("name")),
-            ]),
-            MetricValue::FromData(String::from("val")),
-        ),
-    }])
-
-*/
