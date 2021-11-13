@@ -49,7 +49,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 Value::Vector(x) => crate::MetricValue::Vector(*x),
             };
             let parser = match p.parser.as_str() {
-                "json" => crate::parsers::JsonParser {},
+                "json" => crate::parsers::json::Parser {},
                 _ => panic!("not a valid parser"),
             };
             let stages = p
@@ -58,7 +58,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 .map(|s| {
                     let stage: Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> =
                         match s.name.as_str() {
-                            "jq" => Box::new(crate::pipeline_stages::JqStage {
+                            "jq" => Box::new(crate::pipeline_stages::jq::Stage {
                                 expression: s.expr.clone(),
                             }),
                             _ => panic!("not a valid pipeline_stage"),
