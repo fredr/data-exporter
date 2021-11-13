@@ -49,19 +49,20 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 Value::Vector(x) => crate::MetricValue::Vector(*x),
             };
             let parser = match p.parser.as_str() {
-                "json" => crate::JsonParser {},
+                "json" => crate::parsers::JsonParser {},
                 _ => panic!("not a valid parser"),
             };
             let stages = p
                 .pipeline_stages
                 .iter()
                 .map(|s| {
-                    let stage: Box<dyn crate::PipelineStep + Send + Sync> = match s.name.as_str() {
-                        "jq" => Box::new(crate::JqStep {
-                            expression: s.expr.clone(),
-                        }),
-                        _ => panic!("not a valid pipeline_stage"),
-                    };
+                    let stage: Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> =
+                        match s.name.as_str() {
+                            "jq" => Box::new(crate::pipeline_stages::JqStage {
+                                expression: s.expr.clone(),
+                            }),
+                            _ => panic!("not a valid pipeline_stage"),
+                        };
                     stage
                 })
                 .collect();

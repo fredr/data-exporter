@@ -1,4 +1,6 @@
 pub mod config;
+pub mod parsers;
+pub mod pipeline_stages;
 
 use std::collections::HashMap;
 
@@ -32,37 +34,10 @@ impl Collector for DataMetrics {
     }
 }
 
-// TODO(fredr): create our own Value type that we can parse into from different formats
-pub trait Parser {
-    fn parse(&self, data: &str) -> serde_json::Value;
-}
-
-pub struct JsonParser {}
-
-impl Parser for JsonParser {
-    fn parse(&self, data: &str) -> serde_json::Value {
-        serde_json::from_str(data).unwrap()
-    }
-}
-
-pub trait PipelineStep {
-    fn transform(&self, value: &str) -> String;
-}
-
-pub struct JqStep {
-    pub expression: String,
-}
-impl PipelineStep for JqStep {
-    fn transform(&self, value: &str) -> String {
-        let mut compiled = jq_rs::compile(&self.expression).unwrap();
-        compiled.run(value).unwrap()
-    }
-}
-
 pub struct Probe {
     pub target: String, // This should be an enum for http, file etc
-    pub parser: Box<dyn Parser + Sync + Send>,
-    pub pipeline_stages: Vec<Box<dyn PipelineStep + Sync + Send>>,
+    pub parser: Box<dyn parsers::Parser + Sync + Send>,
+    pub pipeline_stages: Vec<Box<dyn pipeline_stages::PipelineStage + Sync + Send>>,
     pub metric: MetricConfig,
 }
 
