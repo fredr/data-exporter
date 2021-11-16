@@ -1,9 +1,9 @@
 probes:
 - target: http://0.0.0.0:8000/file.json
   pipeline_stages:
-  - name: jq
-    expr: |-
-      [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  - jq:
+      expr: |-
+        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
   parser: json
   metric:
     name: metric_name
