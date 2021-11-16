@@ -2,10 +2,9 @@ pub mod config;
 pub mod parsers;
 pub mod pipeline_stages;
 
-use std::collections::HashMap;
-
 use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
+use std::collections::HashMap;
 
 pub struct DataMetrics {
     probes: Vec<Probe>,
@@ -56,28 +55,44 @@ impl Probe {
             .iter()
             .fold(resp, |acc, ps| ps.transform(&acc));
 
-        let parsed = self.parser.parse(&resp);
         self.metric.metric.reset();
-
-        // TODO(fredr): handle both array an object
-        if let serde_json::Value::Array(arr) = parsed {
-            for val in arr {
-                let labels: HashMap<_, _> = self
-                    .metric
-                    .labels
-                    .iter()
-                    .map(|(k, t)| (k.as_str(), val.get(t).unwrap().as_str().unwrap()))
-                    .collect();
-
-                let value = match &self.metric.value {
-                    MetricValue::FromData(label) => val.get(label).unwrap().as_f64().unwrap(),
-                    MetricValue::Vector(v) => *v,
-                };
-                self.metric.metric.with(&labels).set(value);
-            }
-        }
-
+        self.set_metrics_from_response(&resp);
         Ok(self.metric.metric.collect())
+    }
+
+    // TODO(fredr): return errors instead of panic
+    fn set_metrics_from_response(&self, resp: &str) {
+        match self.parser.parse(&resp) {
+            serde_json::Value::Array(arr) => {
+                for val in arr {
+                    match val {
+                        serde_json::Value::Object(map) => {
+                            self.set_metric_from_data(map);
+                        }
+                        _ => panic!("unexpected pared data in array, expected object"),
+                    }
+                }
+            }
+            serde_json::Value::Object(map) => {
+                self.set_metric_from_data(map);
+            }
+            _ => panic!("unexpected parsed data, expected object or array of objects"),
+        }
+    }
+    fn set_metric_from_data(&self, data: serde_json::Map<String, serde_json::Value>) {
+        let labels: HashMap<_, _> = self
+            .metric
+            .labels
+            .iter()
+            .map(|(k, t)| (k.as_str(), data.get(t).unwrap().as_str().unwrap()))
+            .collect();
+
+        let value = match &self.metric.value {
+            MetricValue::FromData(label) => data.get(label).unwrap().as_f64().unwrap(),
+            MetricValue::Vector(v) => *v,
+        };
+
+        self.metric.metric.with(&labels).set(value);
     }
 }
 
