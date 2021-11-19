@@ -46,13 +46,13 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
 
     let config: Config = serde_yaml::from_reader(reader)?;
 
-    let probes: Vec<crate::Probe> = config
+    let probes: Vec<crate::probe::Probe> = config
         .probes
         .iter()
         .map(|p| {
             let value = match &p.metric.value {
-                Value::FromData(s) => crate::MetricValue::FromData(s.clone()),
-                Value::Vector(x) => crate::MetricValue::Vector(*x),
+                Value::FromData(s) => crate::probe::MetricValue::FromData(s.clone()),
+                Value::Vector(x) => crate::probe::MetricValue::Vector(*x),
             };
             let parser = match &p.parser {
                 Parser::Json => crate::parsers::json::Parser {},
@@ -73,11 +73,11 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 )
                 .collect();
 
-            crate::Probe {
+            crate::probe::Probe {
                 target: p.target.clone(),
                 pipeline_stages: stages,
                 parser: Box::new(parser),
-                metric: crate::MetricConfig::new(
+                metric: crate::probe::MetricConfig::new(
                     p.metric.name.clone(),
                     p.metric.help.clone(),
                     p.metric.labels.clone(),
