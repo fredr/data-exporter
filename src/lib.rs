@@ -43,22 +43,38 @@ pub struct Probe {
     pub metric: MetricConfig,
 }
 
+#[derive(Debug)]
+enum ProbeError {
+    IO(std::io::Error),
+    Reqwest(reqwest::Error),
+}
+impl From<std::io::Error> for ProbeError {
+    fn from(e: std::io::Error) -> Self {
+        ProbeError::IO(e)
+    }
+}
+impl From<reqwest::Error> for ProbeError {
+    fn from(e: reqwest::Error) -> Self {
+        ProbeError::Reqwest(e)
+    }
+}
+
 impl Probe {
     #[tokio::main]
     async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
         futures::stream::iter(probes)
             .map(|p| async { p.probe().await.unwrap() })
             .buffer_unordered(100)
-            .collect::<Vec<Vec<prometheus::proto::MetricFamily>>>()
+            .collect::<Vec<_>>()
             .await
             .into_iter()
             .flatten()
-            .collect::<Vec<prometheus::proto::MetricFamily>>()
+            .collect()
     }
 
-    async fn probe(&self) -> std::io::Result<Vec<prometheus::proto::MetricFamily>> {
+    async fn probe(&self) -> Result<Vec<prometheus::proto::MetricFamily>, ProbeError> {
         let target = self.target.clone();
-        let resp = reqwest::get(&target).await.unwrap().text().await.unwrap();
+        let resp = reqwest::get(&target).await?.text().await?;
 
         let resp = self
             .pipeline_stages
