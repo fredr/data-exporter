@@ -47,6 +47,7 @@ pub struct Probe {
 enum ProbeError {
     IO(std::io::Error),
     Reqwest(reqwest::Error),
+    ParseResponse(String),
 }
 impl From<std::io::Error> for ProbeError {
     fn from(e: std::io::Error) -> Self {
@@ -82,12 +83,11 @@ impl Probe {
             .fold(resp, |acc, ps| ps.transform(&acc));
 
         self.metric.metric.reset();
-        self.set_metrics_from_response(&resp);
+        self.set_metrics_from_response(&resp)?;
         Ok(self.metric.metric.collect())
     }
 
-    // TODO(fredr): return errors instead of panic
-    fn set_metrics_from_response(&self, resp: &str) {
+    fn set_metrics_from_response(&self, resp: &str) -> Result<(), ProbeError> {
         match self.parser.parse(resp) {
             serde_json::Value::Array(arr) => {
                 for val in arr {
@@ -95,15 +95,25 @@ impl Probe {
                         serde_json::Value::Object(map) => {
                             self.set_metric_from_data(map);
                         }
-                        _ => panic!("unexpected pared data in array, expected object"),
+                        _ => {
+                            return Err(ProbeError::ParseResponse(String::from(
+                                "unexpected pared data in array, expected object",
+                            )))
+                        }
                     }
                 }
             }
             serde_json::Value::Object(map) => {
                 self.set_metric_from_data(map);
             }
-            _ => panic!("unexpected parsed data, expected object or array of objects"),
+            _ => {
+                return Err(ProbeError::ParseResponse(String::from(
+                    "unexpected parsed data, expected object or array of objects",
+                )))
+            }
         }
+
+        Ok(())
     }
     fn set_metric_from_data(&self, data: serde_json::Map<String, serde_json::Value>) {
         let labels: HashMap<_, _> = self
