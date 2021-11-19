@@ -1,4 +1,4 @@
-pub struct Parser {}
+pub struct Parser;
 
 impl super::Parser for Parser {
     fn parse(&self, data: &str) -> serde_json::Value {
