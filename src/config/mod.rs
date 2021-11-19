@@ -87,5 +87,5 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
         })
         .collect();
 
-    Ok(crate::DataMetrics { probes })
+    Ok(crate::DataMetrics::new(probes))
 }

@@ -12,3 +12,29 @@ probes:
       parent: parent
       name: child
     value: val
+- target: http://0.0.0.0:8000/file.json
+  pipeline_stages:
+  - jq:
+      expr: |-
+        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  parser: json
+  metric:
+    name: metric_name1
+    help: This is the help text
+    labels:
+      parent: parent
+      name: child
+    value: val
+- target: http://0.0.0.0:8000/file.json
+  pipeline_stages:
+  - jq:
+      expr: |-
+        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  parser: json
+  metric:
+    name: metric_name2
+    help: This is the help text
+    labels:
+      parent: parent
+      name: child
+    value: val

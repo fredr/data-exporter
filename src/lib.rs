@@ -2,17 +2,21 @@ pub mod config;
 pub mod parsers;
 pub mod pipeline_stages;
 
+use futures::StreamExt;
 use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub struct DataMetrics {
-    probes: Vec<Probe>,
+    probes: Arc<Vec<Probe>>,
 }
 
 impl DataMetrics {
     pub fn new(probes: Vec<Probe>) -> Self {
-        DataMetrics { probes }
+        DataMetrics {
+            probes: Arc::new(probes),
+        }
     }
 }
 
@@ -25,11 +29,10 @@ impl Collector for DataMetrics {
     }
 
     fn collect(&self) -> Vec<prometheus::proto::MetricFamily> {
-        // TODO(fredr): Make this parallel via some async thread or something
-        self.probes
-            .iter()
-            .flat_map(|p| p.probe().unwrap())
-            .collect()
+        let probes = self.probes.clone();
+        std::thread::spawn(move || Probe::run(probes.as_ref()))
+            .join()
+            .unwrap()
     }
 }
 
@@ -41,14 +44,21 @@ pub struct Probe {
 }
 
 impl Probe {
-    fn probe(&self) -> std::io::Result<Vec<prometheus::proto::MetricFamily>> {
+    #[tokio::main]
+    async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
+        futures::stream::iter(probes)
+            .map(|p| async { p.probe().await.unwrap() })
+            .buffer_unordered(100)
+            .collect::<Vec<Vec<prometheus::proto::MetricFamily>>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect::<Vec<prometheus::proto::MetricFamily>>()
+    }
+
+    async fn probe(&self) -> std::io::Result<Vec<prometheus::proto::MetricFamily>> {
         let target = self.target.clone();
-        let resp = std::thread::spawn(move || {
-            let resp = reqwest::blocking::get(&target).unwrap();
-            resp.text().unwrap()
-        })
-        .join()
-        .unwrap();
+        let resp = reqwest::get(&target).await.unwrap().text().await.unwrap();
 
         let resp = self
             .pipeline_stages
@@ -62,7 +72,7 @@ impl Probe {
 
     // TODO(fredr): return errors instead of panic
     fn set_metrics_from_response(&self, resp: &str) {
-        match self.parser.parse(&resp) {
+        match self.parser.parse(resp) {
             serde_json::Value::Array(arr) => {
                 for val in arr {
                     match val {
