@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exporter
+  labels:
+  {{- .Values.labels | toYaml | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+    {{- .Values.labels | toYaml | nindent 6 }}
+  template:
+    metadata:
+      labels:
+      {{- .Values.labels | toYaml | nindent 8}}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+      - name: data-exporter
+        image: ghcr.io/fredr/kubernetes-version-exporter:{{ .Chart.AppVersion }}
+        args:
+        - --config=/etc/data-exporter/config.yaml
+        ports:
+        - containerPort: 9090
+          name: http
+        volumeMounts:
+        - mountPath: /etc/data-exporter/
+          name: config
+          readOnly: true
+        resources:
+          requests:
+            memory: 100Mi
+            cpu: 50m
+      volumes:
+      - name: config
+        configMap:
+          name: data-exporter
