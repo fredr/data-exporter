@@ -16,3 +16,4 @@ serde_yaml = "0.8"
 jq-rs = { version = "0.4.1", features = ["bundled"] }
 reqwest = "0.11"
 tokio = { version = "1.14.0", features = ["full"] }
+regex = "1.5"

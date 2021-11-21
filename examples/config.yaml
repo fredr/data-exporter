@@ -2,7 +2,7 @@ probes:
 - target: http://0.0.0.0:8000/file.json
   pipeline_stages:
   - jq:
-      expr: |-
+      query: |-
         [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
   parser: json
   metric:
@@ -12,29 +12,16 @@ probes:
       parent: parent
       name: child
     value: val
-- target: http://0.0.0.0:8000/file.json
+- target: https://github.com/fredr/data-exporter/stargazers
   pipeline_stages:
-  - jq:
-      expr: |-
-        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  - regex:
+      pattern: (?ms:^.*All <span[^>]+>(?P<counter>\d+)</span>.*$)
+      replace: |-
+        {"stars": $counter, "repo": "fredr/data-exporter"}
   parser: json
   metric:
-    name: metric_name1
-    help: This is the help text
+    name: github_stars
+    help: Number of stars on GitHub
     labels:
-      parent: parent
-      name: child
-    value: val
-- target: http://0.0.0.0:8000/file.json
-  pipeline_stages:
-  - jq:
-      expr: |-
-        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
-  parser: json
-  metric:
-    name: metric_name2
-    help: This is the help text
-    labels:
-      parent: parent
-      name: child
-    value: val
+      repo: repo
+    value: stars

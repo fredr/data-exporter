@@ -11,7 +11,8 @@ enum Value {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum PipelineStage {
-    Jq { expr: String },
+    Jq { query: String },
+    Regex { pattern: String, replace: String },
 }
 
 #[derive(Deserialize)]
@@ -63,9 +64,15 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 .map(
                     |s| -> Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> {
                         match s {
-                            PipelineStage::Jq { expr } => {
+                            PipelineStage::Jq { query } => {
                                 Box::new(crate::pipeline_stages::jq::Stage {
-                                    expression: expr.clone(),
+                                    expression: query.clone(),
+                                })
+                            }
+                            PipelineStage::Regex { pattern, replace } => {
+                                Box::new(crate::pipeline_stages::regex::Stage {
+                                    regex: regex::Regex::new(pattern).unwrap(),
+                                    replace: replace.to_string(),
                                 })
                             }
                         }

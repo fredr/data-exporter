@@ -3,10 +3,18 @@ use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
 use std::collections::HashMap;
 
+use crate::parsers;
+
 #[tokio::main]
 pub async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
     futures::stream::iter(probes)
-        .map(|p| async { p.probe().await.unwrap() })
+        .map(|p| async {
+            p.probe().await.unwrap_or_else(|err| {
+                // TODO(fredr): Metric for failed probes increase
+                println!("Probe {} failed: {:?}", p.target, err); // TODO(fredr): Replace with real logging
+                vec![]
+            })
+        })
         .buffer_unordered(100)
         .collect::<Vec<_>>()
         .await
@@ -20,6 +28,7 @@ enum ProbeError {
     IO(std::io::Error),
     Reqwest(reqwest::Error),
     ParseResponse(String),
+    ParseError(parsers::ParseError),
 }
 impl From<std::io::Error> for ProbeError {
     fn from(e: std::io::Error) -> Self {
@@ -29,6 +38,11 @@ impl From<std::io::Error> for ProbeError {
 impl From<reqwest::Error> for ProbeError {
     fn from(e: reqwest::Error) -> Self {
         ProbeError::Reqwest(e)
+    }
+}
+impl From<parsers::ParseError> for ProbeError {
+    fn from(e: parsers::ParseError) -> Self {
+        ProbeError::ParseError(e)
     }
 }
 
@@ -55,7 +69,7 @@ impl Probe {
     }
 
     fn set_metrics_from_response(&self, resp: &str) -> Result<(), ProbeError> {
-        match self.parser.parse(resp) {
+        match self.parser.parse(resp)? {
             serde_json::Value::Array(arr) => {
                 for val in arr {
                     match val {
