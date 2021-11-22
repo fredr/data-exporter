@@ -1,4 +1,4 @@
-use actix_web::{get, App, HttpResponse, HttpServer};
+use actix_web::{get, middleware, App, HttpResponse, HttpServer};
 use actix_web_prom::PrometheusMetricsBuilder;
 use clap::Parser;
 
@@ -15,6 +15,13 @@ struct Opts {
 async fn main() -> std::io::Result<()> {
     let opts = Opts::parse();
 
+    // Default log level
+    match std::env::var_os("RUST_LOG") {
+        Some(_) => (),
+        None => std::env::set_var("RUST_LOG", "info"),
+    }
+    env_logger::init();
+
     let prometheus = PrometheusMetricsBuilder::new("data_exporter")
         .registry(prometheus::default_registry().clone())
         .endpoint("/metrics")
@@ -25,11 +32,16 @@ async fn main() -> std::io::Result<()> {
 
     prometheus.registry.register(Box::new(dm)).unwrap();
 
-    HttpServer::new(move || App::new().wrap(prometheus.clone()).service(healthz))
-        .bind(opts.address)
-        .unwrap()
-        .run()
-        .await
+    HttpServer::new(move || {
+        App::new()
+            .wrap(prometheus.clone())
+            .wrap(middleware::Logger::default())
+            .service(healthz)
+    })
+    .bind(opts.address)
+    .unwrap()
+    .run()
+    .await
 }
 
 #[get("/healthz")]

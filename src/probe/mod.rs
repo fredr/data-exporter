@@ -1,4 +1,5 @@
 use futures::StreamExt;
+use log::warn;
 use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
 use std::collections::HashMap;
@@ -12,7 +13,7 @@ pub async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
         .map(|p| async {
             p.probe().await.unwrap_or_else(|err| {
                 // TODO(fredr): Metric for failed probes increase
-                println!("Probe {:?} failed: {:?}", p.target, err); // TODO(fredr): Replace with real logging
+                warn!("Probe {:?} failed with: {:?}", p.target, err);
                 vec![]
             })
         })
