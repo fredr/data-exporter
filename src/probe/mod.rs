@@ -2,6 +2,7 @@ use futures::StreamExt;
 use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
 use std::collections::HashMap;
+use tokio::io::AsyncReadExt;
 
 use crate::parsers;
 
@@ -11,7 +12,7 @@ pub async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
         .map(|p| async {
             p.probe().await.unwrap_or_else(|err| {
                 // TODO(fredr): Metric for failed probes increase
-                println!("Probe {} failed: {:?}", p.target, err); // TODO(fredr): Replace with real logging
+                println!("Probe {:?} failed: {:?}", p.target, err); // TODO(fredr): Replace with real logging
                 vec![]
             })
         })
@@ -47,16 +48,35 @@ impl From<parsers::ParseError> for ProbeError {
 }
 
 pub struct Probe {
-    pub target: String, // This should be an enum for http, file etc
+    pub target: Target,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
     pub pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
     pub metric: MetricConfig,
 }
 
+#[derive(Debug)]
+pub enum Target {
+    Http { url: String },
+    File { path: String },
+}
+
+impl Target {
+    async fn fetch(&self) -> Result<String, ProbeError> {
+        match &self {
+            Self::Http { url } => Ok(reqwest::get(url).await?.text().await?),
+            Self::File { path } => {
+                let mut file = tokio::fs::File::open(path).await?;
+                let mut buffer = String::new();
+                file.read_to_string(&mut buffer).await?;
+                Ok(buffer)
+            }
+        }
+    }
+}
+
 impl Probe {
     async fn probe(&self) -> Result<Vec<prometheus::proto::MetricFamily>, ProbeError> {
-        let target = self.target.clone();
-        let resp = reqwest::get(&target).await?.text().await?;
+        let resp = self.target.fetch().await?;
 
         let resp = self
             .pipeline_stages

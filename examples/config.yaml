@@ -1,5 +1,7 @@
 probes:
-- target: http://0.0.0.0:8000/file.json
+- target:
+    type: file
+    path: examples/file.json
   pipeline_stages:
   - jq:
       query: |-
@@ -12,7 +14,9 @@ probes:
       parent: parent
       name: child
     value: val
-- target: https://github.com/fredr/data-exporter/stargazers
+- target:
+    type: http
+    url: https://github.com/fredr/data-exporter/stargazers
   pipeline_stages:
   - regex:
       pattern: (?ms:^.*All <span[^>]+>(?P<counter>\d+)</span>.*$)

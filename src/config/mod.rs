@@ -31,11 +31,20 @@ enum Parser {
 
 #[derive(Deserialize)]
 struct Probe {
-    target: String,
+    target: Target,
     pipeline_stages: Vec<PipelineStage>,
     parser: Parser,
     metric: Metric,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type")]
+enum Target {
+    Http { url: String },
+    File { path: String },
+}
+
 #[derive(Deserialize)]
 struct Config {
     probes: Vec<Probe>,
@@ -58,7 +67,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
             let parser = match &p.parser {
                 Parser::Json => crate::parsers::json::Parser {},
             };
-            let stages = p
+            let pipeline_stages = p
                 .pipeline_stages
                 .iter()
                 .map(
@@ -80,9 +89,18 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 )
                 .collect();
 
+            let target = match &p.target {
+                Target::Http { url } => crate::probe::Target::Http {
+                    url: String::from(url),
+                },
+                Target::File { path } => crate::probe::Target::File {
+                    path: String::from(path),
+                },
+            };
+
             crate::probe::Probe {
-                target: p.target.clone(),
-                pipeline_stages: stages,
+                target,
+                pipeline_stages,
                 parser: Box::new(parser),
                 metric: crate::probe::MetricConfig::new(
                     p.metric.name.clone(),
