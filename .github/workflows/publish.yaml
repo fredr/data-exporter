@@ -1,0 +1,26 @@
+name: Publish docker image
+on:
+  push:
+    tags:
+    - v[0-9]+.[0-9]+.[0-9]+
+env:
+  IMAGE_NAME: fredr/data-exporter
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build image
+      run: docker build . --file Dockerfile --tag $IMAGE_NAME
+    - name: Log into registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    - name: Push image
+      run: |
+        IMAGE_ID=ghcr.io/$IMAGE_NAME
+        # Strip git ref prefix from version
+        VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+        echo IMAGE_ID=$IMAGE_ID
+        echo VERSION=$VERSION
+        docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+        docker push $IMAGE_ID:$VERSION
