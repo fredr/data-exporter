@@ -1,4 +1,4 @@
 apiVersion: v2
-name: kubernetes-version-exporter
+name: data-exporter
 version: 1.0.0
-appVersion: 0.1.0
+appVersion: v0.1.0

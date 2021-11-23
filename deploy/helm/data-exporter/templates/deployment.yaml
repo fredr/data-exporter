@@ -23,7 +23,7 @@ spec:
         fsGroup: 65532
       containers:
       - name: data-exporter
-        image: ghcr.io/fredr/kubernetes-version-exporter:{{ .Chart.AppVersion }}
+        image: ghcr.io/fredr/data-exporter:{{ .Chart.AppVersion }}
         args:
         - --config=/etc/data-exporter/config.yaml
         ports:
