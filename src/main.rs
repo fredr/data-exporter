@@ -21,20 +21,20 @@ async fn main() -> std::io::Result<()> {
         None => std::env::set_var("RUST_LOG", "info"),
     }
     env_logger::init();
+    data_exporter::init_metrics();
 
-    let prometheus = PrometheusMetricsBuilder::new("data_exporter")
-        .registry(prometheus::default_registry().clone())
+    let metrics_mw = PrometheusMetricsBuilder::new("")
         .endpoint("/metrics")
+        .registry(prometheus::default_registry().clone())
         .build()
         .unwrap();
 
     let dm = data_exporter::config::parse(opts.config).unwrap();
-
-    prometheus.registry.register(Box::new(dm)).unwrap();
+    metrics_mw.registry.register(Box::new(dm)).unwrap();
 
     HttpServer::new(move || {
         App::new()
-            .wrap(prometheus.clone())
+            .wrap(metrics_mw.clone())
             .wrap(middleware::Logger::default())
             .service(healthz)
     })

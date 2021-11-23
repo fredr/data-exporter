@@ -455,6 +455,7 @@ dependencies = [
  "env_logger",
  "futures",
  "jq-rs",
+ "lazy_static",
  "log",
  "prometheus",
  "regex",

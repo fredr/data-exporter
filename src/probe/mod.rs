@@ -11,11 +11,17 @@ use crate::parsers;
 pub async fn run(probes: &[Probe]) -> Vec<prometheus::proto::MetricFamily> {
     futures::stream::iter(probes)
         .map(|p| async {
-            p.probe().await.unwrap_or_else(|err| {
-                // TODO(fredr): Metric for failed probes increase
-                warn!("Probe {:?} failed with: {:?}", p.target, err);
-                vec![]
-            })
+            match p.probe().await {
+                Ok(v) => {
+                    crate::PROBE_SUCCESSES.with(&p.metric_labels()).inc();
+                    v
+                }
+                Err(err) => {
+                    crate::PROBE_FAILURES.with(&p.metric_labels()).inc();
+                    warn!("Probe {:?} failed with: {:?}", p.target, err);
+                    vec![]
+                }
+            }
         })
         .buffer_unordered(100)
         .collect::<Vec<_>>()
@@ -55,27 +61,13 @@ pub struct Probe {
     pub metric: MetricConfig,
 }
 
-#[derive(Debug)]
-pub enum Target {
-    Http { url: String },
-    File { path: String },
-}
-
-impl Target {
-    async fn fetch(&self) -> Result<String, ProbeError> {
-        match &self {
-            Self::Http { url } => Ok(reqwest::get(url).await?.text().await?),
-            Self::File { path } => {
-                let mut file = tokio::fs::File::open(path).await?;
-                let mut buffer = String::new();
-                file.read_to_string(&mut buffer).await?;
-                Ok(buffer)
-            }
+impl Probe {
+    fn metric_labels(&self) -> HashMap<&str, &str> {
+        match &self.target {
+            Target::Http { url } => HashMap::from([("type", "http"), ("probe", url)]),
+            Target::File { path } => HashMap::from([("type", "file"), ("probe", path)]),
         }
     }
-}
-
-impl Probe {
     async fn probe(&self) -> Result<Vec<prometheus::proto::MetricFamily>, ProbeError> {
         let resp = self.target.fetch().await?;
 
@@ -134,6 +126,26 @@ impl Probe {
     }
 }
 
+#[derive(Debug)]
+pub enum Target {
+    Http { url: String },
+    File { path: String },
+}
+
+impl Target {
+    async fn fetch(&self) -> Result<String, ProbeError> {
+        match &self {
+            Self::Http { url } => Ok(reqwest::get(url).await?.text().await?),
+            Self::File { path } => {
+                let mut file = tokio::fs::File::open(path).await?;
+                let mut buffer = String::new();
+                file.read_to_string(&mut buffer).await?;
+                Ok(buffer)
+            }
+        }
+    }
+}
+
 pub enum MetricValue {
     FromData(String),
     Vector(f64),
@@ -157,11 +169,7 @@ impl MetricConfig {
             .map(|(k, _v)| k.as_str())
             .collect::<Vec<&str>>();
 
-        let gauge = GaugeVec::new(
-            opts!(name, help).namespace("data_exporter"),
-            label_names.as_slice(),
-        )
-        .unwrap();
+        let gauge = GaugeVec::new(opts!(name, help), label_names.as_slice()).unwrap();
 
         Self {
             gauge,
