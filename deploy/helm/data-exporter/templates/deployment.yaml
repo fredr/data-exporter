@@ -26,6 +26,7 @@ spec:
         image: ghcr.io/fredr/data-exporter:{{ .Chart.AppVersion }}
         args:
         - --config=/etc/data-exporter/config.yaml
+        - --address=0.0.0.0:9090
         ports:
         - containerPort: 9090
           name: http
