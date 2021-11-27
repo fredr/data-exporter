@@ -1,40 +1,32 @@
 use serde::Deserialize;
-use std::{collections::HashMap, fs::File, io::BufReader};
-
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum Value {
-    Vector(f64),
-    FromData(String),
-}
+use std::{fs::File, io::BufReader};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[serde(tag = "type")]
 enum PipelineStage {
     Jq { query: String },
     Regex { pattern: String, replace: String },
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type")]
+enum Parser {
+    Json {
+        labels: Vec<String>,
+        value: Option<String>,
+    },
+}
+
+#[derive(Deserialize)]
 struct Metric {
     name: String,
     help: String,
-    labels: HashMap<String, String>,
-    value: Value,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-enum Parser {
-    Json,
-}
-
-#[derive(Deserialize)]
-struct Probe {
-    target: Target,
+    value: Option<f64>,
+    targets: Vec<Target>,
     pipeline_stages: Vec<PipelineStage>,
     parser: Parser,
-    metric: Metric,
 }
 
 #[derive(Deserialize)]
@@ -47,7 +39,7 @@ enum Target {
 
 #[derive(Deserialize)]
 struct Config {
-    probes: Vec<Probe>,
+    metrics: Vec<Metric>,
 }
 
 pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
@@ -56,18 +48,20 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
 
     let config: Config = serde_yaml::from_reader(reader)?;
 
-    let probes: Vec<crate::probe::Probe> = config
-        .probes
+    let metrics: Vec<crate::metrics::Metric> = config
+        .metrics
         .iter()
-        .map(|p| {
-            let value = match &p.metric.value {
-                Value::FromData(s) => crate::probe::MetricValue::FromData(s.clone()),
-                Value::Vector(x) => crate::probe::MetricValue::Vector(*x),
+        .map(|m| {
+            let (parser, labels) = match &m.parser {
+                Parser::Json { labels, value } => (
+                    crate::parsers::json::Parser {
+                        labels: labels.to_vec(),
+                        value: value.to_owned(),
+                    },
+                    labels,
+                ),
             };
-            let parser = match &p.parser {
-                Parser::Json => crate::parsers::json::Parser {},
-            };
-            let pipeline_stages = p
+            let pipeline_stages = m
                 .pipeline_stages
                 .iter()
                 .map(
@@ -89,28 +83,30 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 )
                 .collect();
 
-            let target = match &p.target {
-                Target::Http { url } => crate::probe::Target::Http {
-                    url: String::from(url),
-                },
-                Target::File { path } => crate::probe::Target::File {
-                    path: String::from(path),
-                },
-            };
+            let targets = m
+                .targets
+                .iter()
+                .map(|t| match t {
+                    Target::Http { url } => crate::metrics::Target::Http {
+                        url: String::from(url),
+                    },
+                    Target::File { path } => crate::metrics::Target::File {
+                        path: String::from(path),
+                    },
+                })
+                .collect();
 
-            crate::probe::Probe {
-                target,
-                pipeline_stages,
-                parser: Box::new(parser),
-                metric: crate::probe::MetricConfig::new(
-                    p.metric.name.clone(),
-                    p.metric.help.clone(),
-                    p.metric.labels.clone(),
-                    value,
-                ),
+            let mut builder =
+                crate::metrics::MetricBuilder::new(m.name.clone(), m.help.clone(), labels.to_vec());
+            if let Some(v) = m.value {
+                builder.value(v);
             }
+            builder.targets(targets);
+            builder.pipeline_stages(pipeline_stages);
+            builder.parser(Box::new(parser));
+            builder.build()
         })
         .collect();
 
-    Ok(crate::DataMetrics::new(probes))
+    Ok(crate::DataMetrics::new(metrics))
 }

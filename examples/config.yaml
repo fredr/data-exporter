@@ -1,31 +1,46 @@
-probes:
-- target:
-    type: file
+metrics:
+- name: metric_name
+  help: This is the help text
+  targets:
+  - type: file
     path: examples/file.json
   pipeline_stages:
-  - jq:
-      query: |-
-        [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
-  parser: json
-  metric:
-    name: metric_name
-    help: This is the help text
+  - type: jq
+    query: |-
+      [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  parser:
+    type: json
     labels:
-      parent: parent
-      name: child
+    - parent
+    - child
     value: val
-- target:
-    type: http
+- name: metric_name_constant_value
+  help: This is the help text
+  targets:
+  - type: file
+    path: examples/file.json
+  pipeline_stages:
+  - type: jq
+    query: |-
+      [.[] | {parent: .name} + (.children[] | {child: .name, val: .value})]
+  parser:
+    type: json
+    labels:
+    - parent
+    - child
+  value: 1
+- name: github_stars
+  help: Number of stars on GitHub
+  targets:
+  - type: http
     url: https://github.com/fredr/data-exporter/stargazers
   pipeline_stages:
-  - regex:
-      pattern: (?ms:^.*All <span[^>]+>(?P<counter>\d+)</span>.*$)
-      replace: |-
-        {"stars": $counter, "repo": "fredr/data-exporter"}
-  parser: json
-  metric:
-    name: github_stars
-    help: Number of stars on GitHub
+  - type: regex
+    pattern: (?ms:^.*All <span[^>]+>(?P<counter>\d+)</span>.*$)
+    replace: |-
+      {"stars": $counter, "repo": "fredr/data-exporter"}
+  parser:
+    type: json
     labels:
-      repo: repo
+    - repo
     value: stars
