@@ -10,13 +10,13 @@ use std::sync::Arc;
 
 lazy_static! {
     pub static ref COLLECT_FAILURES: IntCounterVec = register_int_counter_vec!(
-        "collect_failures_total",
+        "data_exporter_collect_failures_total",
         "Number of failed collects",
         &["metric"]
     )
     .unwrap();
     pub static ref COLLECT_SUCCESSES: IntCounterVec = register_int_counter_vec!(
-        "collect_successes_total",
+        "data_exporter_collect_successes_total",
         "Number of succeeded collects",
         &["metric"]
     )
