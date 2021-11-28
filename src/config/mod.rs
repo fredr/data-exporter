@@ -54,10 +54,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
         .map(|m| {
             let (parser, labels) = match &m.parser {
                 Parser::Json { labels, value } => (
-                    crate::parsers::json::Parser {
-                        labels: labels.to_vec(),
-                        value: value.to_owned(),
-                    },
+                    crate::parsers::json::JsonParser::new(labels.to_vec(), value.to_owned()),
                     labels,
                 ),
             };

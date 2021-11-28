@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use super::ParseError;
 
-pub struct Parser {
-    pub labels: Vec<String>,
-    pub value: Option<String>,
+pub struct JsonParser {
+    labels: Vec<String>,
+    value: Option<String>,
 }
 
-impl super::Parser for Parser {
+impl super::Parser for JsonParser {
     fn parse(&self, data: &str) -> Result<Vec<super::Parsed>, ParseError> {
         match serde_json::from_str(data)? {
             serde_json::Value::Array(arr) => arr
@@ -31,12 +31,19 @@ impl super::Parser for Parser {
     }
 }
 
-impl Parser {
+impl JsonParser {
+    pub fn new(labels: Vec<String>, value: Option<String>) -> JsonParser {
+        JsonParser { labels, value }
+    }
+
     fn handle_obj(
         &self,
         obj: &serde_json::Map<String, serde_json::Value>,
     ) -> Result<super::Parsed, ParseError> {
-        let mut parsed_labels = HashMap::new();
+        let mut parsed = super::Parsed {
+            labels: HashMap::new(),
+            value: None,
+        };
 
         for label in &self.labels {
             let value =
@@ -47,18 +54,80 @@ impl Parser {
                         "expected field missing",
                     )))?;
 
-            parsed_labels.insert(label.clone(), value.to_string());
+            parsed.labels.insert(label.clone(), value.to_string());
         }
 
-        let parsed_value = self
-            .value
-            .as_ref()
-            .map(|key| obj.get(key).map(|val| val.as_f64()).flatten())
-            .flatten();
+        if let Some(key) = &self.value {
+            let value = obj
+                .get(key)
+                .ok_or(ParseError::MissingField(String::from(
+                    "expected field missing",
+                )))?
+                .as_f64()
+                .ok_or(ParseError::IncorrectType(String::from(
+                    "expected a float64",
+                )))?;
+            parsed.value = Some(value);
+        }
 
-        Ok(super::Parsed {
-            labels: parsed_labels,
-            value: parsed_value,
-        })
+        Ok(parsed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parsers::Parser;
+
+    #[test]
+    fn test_parse_labels_object() {
+        let data = r#"{"label": "value"}"#;
+        let p = JsonParser::new(vec![String::from("label")], None);
+        let parsed = p.parse(data).expect("could not parse data");
+        assert_eq!(parsed[0].labels.get("label"), Some(&String::from("value")));
+    }
+    #[test]
+    fn test_parse_value_object() {
+        let data = r#"{"val": 100}"#;
+        let p = JsonParser::new(Vec::new(), Some(String::from("val")));
+        let parsed = p.parse(data).expect("could not parse data");
+        assert_eq!(parsed[0].value, Some(100f64));
+    }
+    #[test]
+    fn test_error_parse_labels_object_missing_field() {
+        let data = r#"{"label": "value"}"#;
+        let p = JsonParser::new(vec![String::from("other")], None);
+        let parsed = p.parse(data);
+        assert!(matches!(parsed, Err(ParseError::MissingField(..))))
+    }
+    #[test]
+    fn test_error_parse_labels_object_missing_value() {
+        let data = r#"{"label": "value"}"#;
+        let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
+        let parsed = p.parse(data);
+        assert!(matches!(parsed, Err(ParseError::MissingField(..))))
+    }
+    #[test]
+    fn test_error_parse_labels_object_incorrect_value_type() {
+        let data = r#"{"label": "value", "val": "string"}"#;
+        let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
+        let parsed = p.parse(data);
+        assert!(matches!(parsed, Err(ParseError::IncorrectType(..))))
+    }
+    #[test]
+    fn test_error_invalid_json() {
+        let p = JsonParser::new(Vec::new(), None);
+        assert!(matches!(
+            p.parse("not json"),
+            Err(ParseError::InvalidJson(..))
+        ));
+    }
+    #[test]
+    fn test_error_incorrect_type() {
+        let p = JsonParser::new(Vec::new(), None);
+        assert!(matches!(
+            p.parse(r#""json string""#),
+            Err(ParseError::IncorrectType(..))
+        ));
     }
 }
