@@ -1,6 +1,9 @@
 # data-exporter
 A prometheus exporter that scrapes remote data or local files and converts them to prometheus metrics. It is similar to [json_exporter](https://github.com/prometheus-community/json_exporter/), but adds the possibility to transform the data before metrics are extracted, and is not limited to only support JSON data. 
 
+## Docker image
+A docker image is built as part of this repository. Find the published versions [here](https://github.com/fredr/data-exporter/pkgs/container/data-exporter)
+
 ## Local development
 ### Run tests
 ```
