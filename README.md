@@ -12,7 +12,7 @@ cargo run -- --config examples/config.yaml
 ```
 
 ## Configuration
-data-exporter is configured via a configuration file in YAML format, and via command-line flags.
+data-exporter is configured via a configuration file in YAML format (see [this example](https://github.com/fredr/data-exporter/blob/main/examples/config.yaml)), and via command-line flags.
 
 ### Command-line flags
 Run the help command to get all available flags
