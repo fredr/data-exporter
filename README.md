@@ -44,7 +44,7 @@ pipeline_stages: [<pipeline_stage_config>]
 # parser for parsing metrics from data
 parser: <parser_config>
 
-# set a constant value for the metric, it is required to set this either this or `value` in `parser_config`
+# set a constant value for the metric, it is required to set either this or `value` in `parser_config`
 value: <float64>
 ```
 
