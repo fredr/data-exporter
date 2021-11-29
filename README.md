@@ -1,6 +1,16 @@
 # data-exporter
 A prometheus exporter that scrapes remote data or local files and converts them to prometheus metrics. It is similar to [json_exporter](https://github.com/prometheus-community/json_exporter/), but adds the possibility to transform the data before metrics are extracted, and is not limited to only support JSON data. 
 
+## Local development
+### Run tests
+```
+cargo test
+```
+### Run the exporter
+```
+cargo run -- --config examples/config.yaml
+```
+
 ## Configuration
 data-exporter is configured via a configuration file in YAML format, and via command-line flags.
 
@@ -23,7 +33,7 @@ metrics: [<metric_config>]
 name: <string>
 
 # metric help string when scraped
-help: This is the help text
+help: <string>
 
 # targets to scrape data from
 targets: [<target_config>]
@@ -85,5 +95,5 @@ labels:
 - child
 
 # field to extract as value, it is required to set either this or `value` in `metric_config`
-value: val
+value: <string>
 ```
