@@ -14,19 +14,15 @@ impl super::Parser for JsonParser {
                 .iter()
                 .map(|v| match v {
                     serde_json::Value::Object(obj) => self.handle_obj(obj),
-                    _ => {
-                        return Err(ParseError::IncorrectType(String::from(
-                            "exepcted object or array of objects",
-                        )))
-                    }
+                    _ => Err(ParseError::IncorrectType(String::from(
+                        "exepcted object or array of objects",
+                    ))),
                 })
                 .collect(),
             serde_json::Value::Object(obj) => Ok(vec![self.handle_obj(&obj)?]),
-            _ => {
-                return Err(ParseError::IncorrectType(String::from(
-                    "exepcted object or array of objects",
-                )))
-            }
+            _ => Err(ParseError::IncorrectType(String::from(
+                "exepcted object or array of objects",
+            ))),
         }
     }
 }
@@ -46,13 +42,11 @@ impl JsonParser {
         };
 
         for label in &self.labels {
-            let value =
-                obj.get(label)
-                    .map(|v| v.as_str())
-                    .flatten()
-                    .ok_or(ParseError::MissingField(String::from(
-                        "expected field missing",
-                    )))?;
+            let value = obj
+                .get(label)
+                .map(|v| v.as_str())
+                .flatten()
+                .ok_or_else(|| ParseError::MissingField(String::from("expected field missing")))?;
 
             parsed.labels.insert(label.clone(), value.to_string());
         }
@@ -60,13 +54,9 @@ impl JsonParser {
         if let Some(key) = &self.value {
             let value = obj
                 .get(key)
-                .ok_or(ParseError::MissingField(String::from(
-                    "expected field missing",
-                )))?
+                .ok_or_else(|| ParseError::MissingField(String::from("expected field missing")))?
                 .as_f64()
-                .ok_or(ParseError::IncorrectType(String::from(
-                    "expected a float64",
-                )))?;
+                .ok_or_else(|| ParseError::IncorrectType(String::from("expected a float64")))?;
             parsed.value = Some(value);
         }
 
