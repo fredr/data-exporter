@@ -90,9 +90,7 @@ replace: <string>
 type: json
 
 # fields to extract as labels
-labels:
-- parent
-- child
+labels: [<string>]
 
 # field to extract as value, it is required to set either this or `value` in `metric_config`
 value: <string>
