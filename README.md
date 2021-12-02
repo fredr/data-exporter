@@ -1,5 +1,5 @@
 # data-exporter
-A prometheus exporter that scrapes remote data or local files and converts them to prometheus metrics. It is similar to [json_exporter](https://github.com/prometheus-community/json_exporter/), but adds the possibility to transform the data before metrics are extracted, and is not limited to only support JSON data. 
+A [prometheus exporter](https://prometheus.io/docs/introduction/glossary/#exporter) that scrapes remote data or local files and converts them to prometheus metrics. It is similar to [json_exporter](https://github.com/prometheus-community/json_exporter/), but adds the possibility to transform the data before metrics are extracted, and is not limited to only support JSON data. 
 
 ## Docker image
 A docker image is built as part of this repository. Find the published versions [here](https://github.com/fredr/data-exporter/pkgs/container/data-exporter)
@@ -13,6 +13,10 @@ cargo test
 ```
 cargo run -- --config examples/config.yaml
 ```
+Now you can use `curl` to get the metrics:
+```
+curl http://localhost:9090/metrics
+```
 
 ## Configuration
 data-exporter is configured via a configuration file in YAML format (see [this example](https://github.com/fredr/data-exporter/blob/main/examples/config.yaml)), and via command-line flags.
@@ -24,7 +28,7 @@ data-exporter --help
 ```
 
 ### Configuration file
-In the configuration file all scraped metrics are configured.o
+In the configuration file all scraped metrics are configured.
 
 ```
 metrics: [<metric_config>]
