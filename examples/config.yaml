@@ -44,3 +44,16 @@ metrics:
     labels:
     - repo
     value: stars
+- name: github_stargazers
+  help: Stargazers per reopository
+  targets:
+  - type: http
+    url: https://github.com/fredr?tab=repositories&type=source
+  parser:
+    type: regex
+    pattern: (?s:<a [^>]+?href="/(?P<repo>fredr/[^/]+?)/stargazers">.*?(?P<stars>[\d]+)\W+</a>)
+    labels:
+    - repo
+    value: stars
+
+
