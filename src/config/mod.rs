@@ -17,6 +17,11 @@ enum Parser {
         labels: Vec<String>,
         value: Option<String>,
     },
+    Regex {
+        pattern: String,
+        labels: Vec<String>,
+        value: Option<String>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -52,12 +57,28 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
         .metrics
         .iter()
         .map(|m| {
-            let (parser, labels) = match &m.parser {
-                Parser::Json { labels, value } => (
-                    crate::parsers::json::JsonParser::new(labels.to_vec(), value.to_owned()),
-                    labels,
-                ),
-            };
+            let (parser, labels): (Box<dyn crate::parsers::Parser + Send + Sync>, _) =
+                match &m.parser {
+                    Parser::Regex {
+                        labels,
+                        value,
+                        pattern,
+                    } => (
+                        Box::new(crate::parsers::regex::RegexParser::new(
+                            pattern,
+                            labels.to_vec(),
+                            value.to_owned(),
+                        )),
+                        labels,
+                    ),
+                    Parser::Json { labels, value } => (
+                        Box::new(crate::parsers::json::JsonParser::new(
+                            labels.to_vec(),
+                            value.to_owned(),
+                        )),
+                        labels,
+                    ),
+                };
             let pipeline_stages = m
                 .pipeline_stages
                 .iter()
@@ -100,7 +121,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
             }
             builder.targets(targets);
             builder.pipeline_stages(pipeline_stages);
-            builder.parser(Box::new(parser));
+            builder.parser(parser);
             builder.build()
         })
         .collect();

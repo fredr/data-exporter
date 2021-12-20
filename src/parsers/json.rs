@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use super::ParseError;
+use super::{ParseError, Parsed};
 
 pub struct JsonParser {
     labels: Vec<String>,
@@ -8,21 +6,21 @@ pub struct JsonParser {
 }
 
 impl super::Parser for JsonParser {
-    fn parse(&self, data: &str) -> Result<Vec<super::Parsed>, ParseError> {
+    fn parse(&self, data: &str) -> Result<Vec<Parsed>, ParseError> {
         match serde_json::from_str(data)? {
             serde_json::Value::Array(arr) => arr
                 .iter()
                 .map(|v| match v {
                     serde_json::Value::Object(obj) => self.handle_obj(obj),
-                    _ => Err(ParseError::IncorrectType(String::from(
-                        "exepcted object or array of objects",
-                    ))),
+                    _ => Err(ParseError::IncorrectType(
+                        "exepcted object or array of objects".into(),
+                    )),
                 })
                 .collect(),
             serde_json::Value::Object(obj) => Ok(vec![self.handle_obj(&obj)?]),
-            _ => Err(ParseError::IncorrectType(String::from(
-                "exepcted object or array of objects",
-            ))),
+            _ => Err(ParseError::IncorrectType(
+                "exepcted object or array of objects".into(),
+            )),
         }
     }
 }
@@ -35,18 +33,15 @@ impl JsonParser {
     fn handle_obj(
         &self,
         obj: &serde_json::Map<String, serde_json::Value>,
-    ) -> Result<super::Parsed, ParseError> {
-        let mut parsed = super::Parsed {
-            labels: HashMap::new(),
-            value: None,
-        };
+    ) -> Result<Parsed, ParseError> {
+        let mut parsed = Parsed::new();
 
         for label in &self.labels {
             let value = obj
                 .get(label)
                 .map(|v| v.as_str())
                 .flatten()
-                .ok_or_else(|| ParseError::MissingField(String::from("expected field missing")))?;
+                .ok_or_else(|| ParseError::MissingField("expected field missing".into()))?;
 
             parsed.labels.insert(label.clone(), value.to_string());
         }
@@ -54,9 +49,9 @@ impl JsonParser {
         if let Some(key) = &self.value {
             let value = obj
                 .get(key)
-                .ok_or_else(|| ParseError::MissingField(String::from("expected field missing")))?
+                .ok_or_else(|| ParseError::MissingField("expected field missing".into()))?
                 .as_f64()
-                .ok_or_else(|| ParseError::IncorrectType(String::from("expected a float64")))?;
+                .ok_or_else(|| ParseError::IncorrectType("expected a float64".into()))?;
             parsed.value = Some(value);
         }
 
