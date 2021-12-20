@@ -25,7 +25,7 @@ impl super::Parser for RegexParser {
 
                 for label in &self.labels {
                     let value = cap
-                        .name(&label)
+                        .name(label)
                         .map(|m| m.as_str())
                         .ok_or_else(|| ParseError::MissingField("expected field missing".into()))?;
 
