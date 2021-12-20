@@ -30,7 +30,7 @@ struct Metric {
     help: String,
     value: Option<f64>,
     targets: Vec<Target>,
-    pipeline_stages: Vec<PipelineStage>,
+    pipeline_stages: Option<Vec<PipelineStage>>,
     parser: Parser,
 }
 
@@ -79,27 +79,30 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                         labels,
                     ),
                 };
-            let pipeline_stages = m
-                .pipeline_stages
-                .iter()
-                .map(
-                    |s| -> Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> {
-                        match s {
-                            PipelineStage::Jq { query } => {
-                                Box::new(crate::pipeline_stages::jq::Stage {
-                                    expression: query.clone(),
-                                })
+
+            let mut pipeline_stages = Vec::new();
+            if let Some(stages) = &m.pipeline_stages {
+                pipeline_stages = stages
+                    .iter()
+                    .map(
+                        |s| -> Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> {
+                            match s {
+                                PipelineStage::Jq { query } => {
+                                    Box::new(crate::pipeline_stages::jq::Stage {
+                                        expression: query.clone(),
+                                    })
+                                }
+                                PipelineStage::Regex { pattern, replace } => {
+                                    Box::new(crate::pipeline_stages::regex::Stage {
+                                        regex: regex::Regex::new(pattern).unwrap(),
+                                        replace: replace.to_string(),
+                                    })
+                                }
                             }
-                            PipelineStage::Regex { pattern, replace } => {
-                                Box::new(crate::pipeline_stages::regex::Stage {
-                                    regex: regex::Regex::new(pattern).unwrap(),
-                                    replace: replace.to_string(),
-                                })
-                            }
-                        }
-                    },
-                )
-                .collect();
+                        },
+                    )
+                    .collect();
+            }
 
             let targets = m
                 .targets
