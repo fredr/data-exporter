@@ -102,3 +102,16 @@ labels: [<string>]
 # field to extract as value, it is required to set either this or `value` in `metric_config`
 value: <string>
 ```
+#### regex
+```
+type: regex
+
+# regex pattern with named captures
+pattern: <regex>
+
+# named captures to extract as labels
+labels: [<string>]
+
+# named capture to extract as value, it is required to set either this or `value` in `metric_config`
+value: <string>
+```
