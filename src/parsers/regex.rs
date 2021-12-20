@@ -47,3 +47,46 @@ impl super::Parser for RegexParser {
             })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::parsers::Parser;
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn test_regex_parser() {
+        let text = r#"a=1,b=2,c=3,d=4"#;
+        let pattern = r#"(?P<key>[a-z])=(?P<val>\d)"#;
+
+        let parser = RegexParser::new(pattern, vec!["key".to_string()], Some("val".to_string()));
+        let parsed = parser.parse(text).unwrap();
+
+        assert_eq!(parsed.len(), 4);
+
+        assert_eq!(
+            parsed[0].labels,
+            HashMap::from([("key".to_string(), "a".to_string())])
+        );
+        assert_eq!(parsed[0].value, Some(1f64));
+
+        assert_eq!(
+            parsed[1].labels,
+            HashMap::from([("key".to_string(), "b".to_string())])
+        );
+        assert_eq!(parsed[1].value, Some(2f64));
+
+        assert_eq!(
+            parsed[2].labels,
+            HashMap::from([("key".to_string(), "c".to_string())])
+        );
+        assert_eq!(parsed[2].value, Some(3f64));
+
+        assert_eq!(
+            parsed[3].labels,
+            HashMap::from([("key".to_string(), "d".to_string())])
+        );
+        assert_eq!(parsed[3].value, Some(4f64));
+    }
+}
