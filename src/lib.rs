@@ -2,6 +2,7 @@ pub mod config;
 pub mod metrics;
 pub mod parsers;
 pub mod pipeline_stages;
+pub mod targets;
 
 use lazy_static::lazy_static;
 use prometheus::core::Collector;
