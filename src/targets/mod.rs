@@ -1,4 +1,5 @@
 use tokio::io::AsyncReadExt;
+pub mod http;
 
 #[derive(Debug)]
 pub enum TargetError {
@@ -18,20 +19,20 @@ impl From<reqwest::Error> for TargetError {
 
 #[derive(Debug)]
 pub enum Target {
-    Http { url: String },
+    Http(http::Config),
     File { path: String },
 }
 
 impl Target {
     pub fn describe(&self) -> &str {
         match self {
-            Self::Http { url } => url,
+            Self::Http(http::Config { url }) => url,
             Self::File { path } => path,
         }
     }
     pub async fn fetch(&self) -> Result<String, TargetError> {
         match &self {
-            Self::Http { url } => Ok(reqwest::get(url).await?.text().await?),
+            Self::Http(config) => Ok(config.fetch().await?),
             Self::File { path } => {
                 let mut file = tokio::fs::File::open(path).await?;
                 let mut buffer = String::new();
