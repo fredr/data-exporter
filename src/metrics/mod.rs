@@ -3,9 +3,9 @@ use log::warn;
 use prometheus::core::Collector;
 use prometheus::{opts, GaugeVec};
 use std::collections::HashMap;
-use tokio::io::AsyncReadExt;
 
 use crate::parsers;
+use crate::targets;
 
 #[tokio::main]
 pub async fn collect(metrics: &[Metric]) -> Vec<prometheus::proto::MetricFamily> {
@@ -33,24 +33,18 @@ pub async fn collect(metrics: &[Metric]) -> Vec<prometheus::proto::MetricFamily>
 
 #[derive(Debug)]
 enum CollectError {
-    IO(std::io::Error),
-    Reqwest(reqwest::Error),
     ParseError(parsers::ParseError),
     MissingValue(String),
-}
-impl From<std::io::Error> for CollectError {
-    fn from(e: std::io::Error) -> Self {
-        CollectError::IO(e)
-    }
-}
-impl From<reqwest::Error> for CollectError {
-    fn from(e: reqwest::Error) -> Self {
-        CollectError::Reqwest(e)
-    }
+    TargetError(targets::TargetError),
 }
 impl From<parsers::ParseError> for CollectError {
     fn from(e: parsers::ParseError) -> Self {
         CollectError::ParseError(e)
+    }
+}
+impl From<targets::TargetError> for CollectError {
+    fn from(e: targets::TargetError) -> Self {
+        CollectError::TargetError(e)
     }
 }
 
@@ -58,7 +52,7 @@ pub struct MetricBuilder {
     name: String,
     help: String,
     value: Option<f64>,
-    targets: Vec<Target>,
+    targets: Vec<targets::Target>,
     parser: Option<Box<dyn crate::parsers::Parser + Sync + Send>>,
     labels: Vec<String>,
     pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
@@ -78,7 +72,7 @@ impl MetricBuilder {
     pub fn value(&mut self, v: f64) {
         self.value = Some(v)
     }
-    pub fn targets(&mut self, t: Vec<Target>) {
+    pub fn targets(&mut self, t: Vec<targets::Target>) {
         self.targets.extend(t.into_iter())
     }
     pub fn parser(&mut self, p: Box<dyn crate::parsers::Parser + Sync + Send>) {
@@ -115,7 +109,7 @@ impl MetricBuilder {
 pub struct Metric {
     pub name: String,
     pub value: Option<f64>,
-    pub targets: Vec<Target>,
+    pub targets: Vec<targets::Target>,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
     pub pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
     pub gauge: GaugeVec,
@@ -154,31 +148,5 @@ impl Metric {
         }
 
         Ok(self.gauge.collect())
-    }
-}
-
-#[derive(Debug)]
-pub enum Target {
-    Http { url: String },
-    File { path: String },
-}
-
-impl Target {
-    fn describe(&self) -> &str {
-        match self {
-            Self::Http { url } => url,
-            Self::File { path } => path,
-        }
-    }
-    async fn fetch(&self) -> Result<String, CollectError> {
-        match &self {
-            Self::Http { url } => Ok(reqwest::get(url).await?.text().await?),
-            Self::File { path } => {
-                let mut file = tokio::fs::File::open(path).await?;
-                let mut buffer = String::new();
-                file.read_to_string(&mut buffer).await?;
-                Ok(buffer)
-            }
-        }
     }
 }

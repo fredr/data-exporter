@@ -108,10 +108,12 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 .targets
                 .iter()
                 .map(|t| match t {
-                    Target::Http { url } => crate::metrics::Target::Http {
-                        url: String::from(url),
-                    },
-                    Target::File { path } => crate::metrics::Target::File {
+                    Target::Http { url } => {
+                        crate::targets::Target::Http(crate::targets::http::Config {
+                            url: String::from(url),
+                        })
+                    }
+                    Target::File { path } => crate::targets::Target::File {
                         path: String::from(path),
                     },
                 })
