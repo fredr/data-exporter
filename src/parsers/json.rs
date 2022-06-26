@@ -39,8 +39,7 @@ impl JsonParser {
         for label in &self.labels {
             let value = obj
                 .get(label)
-                .map(|v| v.as_str())
-                .flatten()
+                .and_then(|v| v.as_str())
                 .ok_or_else(|| ParseError::MissingField("expected field missing".into()))?;
 
             parsed.labels.insert(label.clone(), value.to_string());

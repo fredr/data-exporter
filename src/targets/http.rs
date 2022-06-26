@@ -14,6 +14,6 @@ impl Config {
             .header(reqwest::header::USER_AGENT, format!("{}/{}", NAME, VERSION));
         let resp = req.send().await?;
 
-        Ok(resp.text().await?)
+        resp.text().await
     }
 }
