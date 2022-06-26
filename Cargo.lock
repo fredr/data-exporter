@@ -448,7 +448,6 @@ dependencies = [
 name = "data-exporter"
 version = "0.3.1"
 dependencies = [
- "actix-rt",
  "actix-web",
  "actix-web-prom",
  "clap",
