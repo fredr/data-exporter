@@ -7,7 +7,6 @@ pub mod targets;
 use std::sync::Arc;
 
 use collector::collect;
-use log::warn;
 use metrics::describe_counter;
 
 const COLLECT_FAILURES: &str = "data_exporter_collect_failures_total";
