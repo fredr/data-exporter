@@ -53,7 +53,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
 
     let config: Config = serde_yaml::from_reader(reader)?;
 
-    let metrics: Vec<crate::metrics::Metric> = config
+    let metrics: Vec<crate::collector::Metric> = config
         .metrics
         .iter()
         .map(|m| {
@@ -119,8 +119,11 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 })
                 .collect();
 
-            let mut builder =
-                crate::metrics::MetricBuilder::new(m.name.clone(), m.help.clone(), labels.to_vec());
+            let mut builder = crate::collector::MetricBuilder::new(
+                m.name.clone(),
+                m.help.clone(),
+                labels.to_vec(),
+            );
             if let Some(v) = m.value {
                 builder.value(v);
             }

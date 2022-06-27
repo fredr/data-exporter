@@ -1,34 +1,26 @@
 use futures::StreamExt;
 use log::warn;
-use prometheus::core::Collector;
-use prometheus::{opts, GaugeVec};
-use std::collections::HashMap;
+use metrics::{gauge, increment_counter};
 
 use crate::parsers;
 use crate::targets;
 
-#[tokio::main]
-pub async fn collect(metrics: &[Metric]) -> Vec<prometheus::proto::MetricFamily> {
+// TODO(fredr): register and describe all metrics
+
+pub async fn collect(metrics: &[Metric]) {
     futures::stream::iter(metrics)
-        .map(|m| async {
+        .for_each_concurrent(25, |m| async {
             match m.collect().await {
-                Ok(v) => {
-                    crate::COLLECT_SUCCESSES.with_label_values(&[&m.name]).inc();
-                    v
+                Ok(()) => {
+                    increment_counter!(crate::COLLECT_SUCCESSES, "metric" => m.name.clone());
                 }
                 Err(err) => {
-                    crate::COLLECT_FAILURES.with_label_values(&[&m.name]).inc();
+                    increment_counter!(crate::COLLECT_FAILURES, "metric" => m.name.clone());
                     warn!("Failed collecting metric {}, error: {:?}", m.name, err);
-                    vec![]
                 }
             }
         })
-        .buffer_unordered(100)
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .flatten()
-        .collect()
+        .await;
 }
 
 #[derive(Debug)]
@@ -89,19 +81,12 @@ impl MetricBuilder {
         let mut label_names = self.labels.iter().map(|s| &**s).collect::<Vec<&str>>();
         label_names.push("target");
 
-        let gauge = GaugeVec::new(
-            opts!(self.name.clone(), self.help.clone()),
-            label_names.as_slice(),
-        )
-        .unwrap();
-
         Metric {
             name: self.name,
             value: self.value,
             targets: self.targets,
             parser: self.parser.unwrap(),
             pipeline_stages: self.pipeline_stages,
-            gauge,
         }
     }
 }
@@ -112,13 +97,10 @@ pub struct Metric {
     pub targets: Vec<targets::Target>,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
     pub pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
-    pub gauge: GaugeVec,
 }
 
 impl Metric {
-    async fn collect(&self) -> Result<Vec<prometheus::proto::MetricFamily>, CollectError> {
-        self.gauge.reset();
-
+    async fn collect(&self) -> Result<(), CollectError> {
         for target in &self.targets {
             let resp = target.fetch().await?;
             let resp = self
@@ -127,13 +109,16 @@ impl Metric {
                 .fold(resp, |acc, stage| stage.transform(&acc));
 
             for parsed in self.parser.parse(&resp)? {
-                let mut labels: HashMap<&str, &str> = parsed
+                let mut labels: Vec<metrics::Label> = parsed
                     .labels
-                    .iter()
-                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .into_iter()
+                    .map(|(k, v)| metrics::Label::from(&(k, v)))
                     .collect();
 
-                labels.insert("target", target.describe());
+                labels.push(metrics::Label::from(&(
+                    "target".to_owned(),
+                    target.describe().to_owned(),
+                )));
 
                 let value = match (parsed.value, self.value) {
                     (Some(value), _) => Ok(value),
@@ -143,10 +128,10 @@ impl Metric {
                     ))),
                 }?;
 
-                self.gauge.with(&labels).set(value);
+                gauge!(self.name.clone(), value, labels);
             }
         }
 
-        Ok(self.gauge.collect())
+        Ok(())
     }
 }
