@@ -33,23 +33,6 @@ impl DataMetrics {
 
     pub async fn collect(&self) {
         let metrics: Arc<Vec<collector::Metric>> = self.metrics.clone();
-        warn!("metrics: {}", metrics.len());
         collect(&metrics).await;
     }
 }
-
-/*
-
-impl Collector for DataMetrics {
-    fn desc(&self) -> Vec<&prometheus::core::Desc> {
-        self.metrics.iter().flat_map(|m| m.gauge.desc()).collect()
-    }
-
-    fn collect(&self) -> Vec<prometheus::proto::MetricFamily> {
-        let metrics = self.metrics.clone();
-        std::thread::spawn(move || metrics::collect(metrics.as_ref()))
-            .join()
-            .unwrap()
-    }
-}
-*/
