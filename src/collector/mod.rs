@@ -83,6 +83,7 @@ impl MetricBuilder {
 
         Metric {
             name: self.name,
+            help: self.help,
             value: self.value,
             targets: self.targets,
             parser: self.parser.unwrap(),
@@ -93,6 +94,7 @@ impl MetricBuilder {
 
 pub struct Metric {
     pub name: String,
+    pub help: String,
     pub value: Option<f64>,
     pub targets: Vec<targets::Target>,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,

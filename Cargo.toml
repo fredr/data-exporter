@@ -18,3 +18,7 @@ log = "0.4"
 env_logger = "0.9"
 metrics = "0.19"
 metrics-exporter-prometheus = "0.10"
+
+[patch.crates-io]
+metrics = { git = "https://github.com/fredr/metrics.git", rev = "2be80a32b10e146fcff0591b68f19d6cd244e235" }
+metrics-exporter-prometheus = { git = "https://github.com/fredr/metrics.git", rev = "2be80a32b10e146fcff0591b68f19d6cd244e235" }

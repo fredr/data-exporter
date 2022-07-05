@@ -28,9 +28,8 @@ async fn main() {
         .install_recorder()
         .expect("failed to install recorder");
 
-    data_exporter::init_metrics();
-
     let metrics = data_exporter::config::parse(opts.config).unwrap();
+    data_exporter::init_metrics(&metrics);
 
     let app = Router::new()
         .route("/healthz", get(healthz))
