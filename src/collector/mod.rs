@@ -46,15 +46,13 @@ pub struct MetricBuilder {
     value: Option<f64>,
     targets: Vec<targets::Target>,
     parser: Option<Box<dyn crate::parsers::Parser + Sync + Send>>,
-    labels: Vec<String>,
     pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
 }
 impl MetricBuilder {
-    pub fn new(name: String, help: String, labels: Vec<String>) -> MetricBuilder {
+    pub fn new(name: String, help: String) -> MetricBuilder {
         MetricBuilder {
             name,
             help,
-            labels,
             value: None,
             targets: Vec::new(),
             parser: None,
@@ -78,9 +76,6 @@ impl MetricBuilder {
     }
 
     pub fn build(self) -> Metric {
-        let mut label_names = self.labels.iter().map(|s| &**s).collect::<Vec<&str>>();
-        label_names.push("target");
-
         Metric {
             name: self.name,
             help: self.help,
@@ -121,6 +116,8 @@ impl Metric {
                     "target".to_owned(),
                     target.describe().to_owned(),
                 )));
+
+                labels.sort();
 
                 let value = match (parsed.value, self.value) {
                     (Some(value), _) => Ok(value),
