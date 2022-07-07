@@ -5,8 +5,6 @@ use metrics::{gauge, increment_counter};
 use crate::parsers;
 use crate::targets;
 
-// TODO(fredr): register and describe all metrics
-
 pub async fn collect(metrics: &[Metric]) {
     futures::stream::iter(metrics)
         .for_each_concurrent(25, |m| async {
