@@ -1,56 +1,44 @@
+pub mod collector;
 pub mod config;
-pub mod metrics;
 pub mod parsers;
 pub mod pipeline_stages;
 pub mod targets;
 
-use lazy_static::lazy_static;
-use prometheus::core::Collector;
-use prometheus::{register_int_counter_vec, IntCounterVec};
 use std::sync::Arc;
 
-lazy_static! {
-    pub static ref COLLECT_FAILURES: IntCounterVec = register_int_counter_vec!(
-        "data_exporter_collect_failures_total",
-        "Number of failed collects",
-        &["metric"]
-    )
-    .unwrap();
-    pub static ref COLLECT_SUCCESSES: IntCounterVec = register_int_counter_vec!(
-        "data_exporter_collect_successes_total",
-        "Number of succeeded collects",
-        &["metric"]
-    )
-    .unwrap();
+use collector::collect;
+use metrics::{describe_counter, describe_gauge, register_counter};
+
+const COLLECT_FAILURES: &str = "data_exporter_collect_failures_total";
+const COLLECT_SUCCESSES: &str = "data_exporter_collect_successes_total";
+
+pub fn init_metrics(metrics: &DataMetrics) {
+    let metrics = metrics.metrics.clone();
+    for metric in metrics.iter() {
+        describe_gauge!(metric.name.clone(), metric.help.clone());
+
+        register_counter!(COLLECT_FAILURES, "metric" => metric.name.clone());
+        register_counter!(COLLECT_SUCCESSES, "metric" => metric.name.clone());
+    }
+
+    describe_counter!(COLLECT_FAILURES, "Number of failed collects");
+    describe_counter!(COLLECT_SUCCESSES, "Number of succeeded collects");
 }
 
-pub fn init_metrics() {
-    // needs to be initialized before use, otherwise they'll be initialiezed during gather, causing deadlock
-    COLLECT_FAILURES.reset();
-    COLLECT_SUCCESSES.reset();
-}
-
+#[derive(Clone)]
 pub struct DataMetrics {
-    metrics: Arc<Vec<metrics::Metric>>,
+    metrics: Arc<Vec<collector::Metric>>,
 }
 
 impl DataMetrics {
-    pub fn new(metrics: Vec<metrics::Metric>) -> Self {
+    pub fn new(metrics: Vec<collector::Metric>) -> Self {
         DataMetrics {
             metrics: Arc::new(metrics),
         }
     }
-}
 
-impl Collector for DataMetrics {
-    fn desc(&self) -> Vec<&prometheus::core::Desc> {
-        self.metrics.iter().flat_map(|m| m.gauge.desc()).collect()
-    }
-
-    fn collect(&self) -> Vec<prometheus::proto::MetricFamily> {
-        let metrics = self.metrics.clone();
-        std::thread::spawn(move || metrics::collect(metrics.as_ref()))
-            .join()
-            .unwrap()
+    pub async fn collect(&self) {
+        let metrics: Arc<Vec<collector::Metric>> = self.metrics.clone();
+        collect(&metrics).await;
     }
 }
