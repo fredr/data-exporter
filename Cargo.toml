@@ -20,5 +20,5 @@ metrics = "0.19"
 metrics-exporter-prometheus = "0.10"
 
 [patch.crates-io]
-metrics = { git = "https://github.com/fredr/metrics.git", rev = "2be80a32b10e146fcff0591b68f19d6cd244e235" }
-metrics-exporter-prometheus = { git = "https://github.com/fredr/metrics.git", rev = "2be80a32b10e146fcff0591b68f19d6cd244e235" }
+metrics = { git = "https://github.com/metrics-rs/metrics.git", rev = "4d92d07ae69ad8c7c6b3f00e553e07f64d8fb08d" }
+metrics-exporter-prometheus = { git = "https://github.com/metrics-rs/metrics.git", rev = "4d92d07ae69ad8c7c6b3f00e553e07f64d8fb08d" }
