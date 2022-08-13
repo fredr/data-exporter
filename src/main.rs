@@ -1,6 +1,8 @@
-use actix_web::{get, middleware, App, HttpResponse, HttpServer};
-use actix_web_prom::PrometheusMetricsBuilder;
+use axum::{routing::get, Extension, Router};
 use clap::Parser;
+use data_exporter::DataMetrics;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use tower_http::trace::TraceLayer;
 
 #[derive(Parser)]
 struct Opts {
@@ -11,8 +13,8 @@ struct Opts {
     address: String,
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() {
     let opts = Opts::parse();
 
     // Default log level
@@ -21,30 +23,37 @@ async fn main() -> std::io::Result<()> {
         None => std::env::set_var("RUST_LOG", "info"),
     }
     env_logger::init();
-    data_exporter::init_metrics();
 
-    let metrics_mw = PrometheusMetricsBuilder::new("")
-        .endpoint("/metrics")
-        .registry(prometheus::default_registry().clone())
-        .build()
-        .unwrap();
+    let builder = PrometheusBuilder::new();
+    let prometheus_handler = builder
+        .install_recorder()
+        .expect("failed to install recorder");
 
-    let dm = data_exporter::config::parse(opts.config).unwrap();
-    metrics_mw.registry.register(Box::new(dm)).unwrap();
+    let metrics = data_exporter::config::parse(opts.config).unwrap();
+    data_exporter::init_metrics(&metrics);
 
-    HttpServer::new(move || {
-        App::new()
-            .wrap(metrics_mw.clone())
-            .wrap(middleware::Logger::default())
-            .service(healthz)
-    })
-    .bind(opts.address)
-    .unwrap()
-    .run()
-    .await
+    let app = Router::new()
+        .route("/healthz", get(healthz))
+        .route("/metrics", get(collect_metrics))
+        .layer(Extension(metrics))
+        .layer(Extension(prometheus_handler))
+        .layer(TraceLayer::new_for_http());
+
+    let addr = opts.address.parse().expect("could not parse address");
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .expect("web server terminated");
 }
 
-#[get("/healthz")]
-fn healthz() -> HttpResponse {
-    HttpResponse::Ok().finish()
+async fn healthz() -> &'static str {
+    "OK"
+}
+
+async fn collect_metrics(
+    metrics: Extension<DataMetrics>,
+    prometheus_handler: Extension<PrometheusHandle>,
+) -> String {
+    metrics.collect().await;
+    prometheus_handler.render()
 }

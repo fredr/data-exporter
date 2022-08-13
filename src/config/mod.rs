@@ -53,32 +53,25 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
 
     let config: Config = serde_yaml::from_reader(reader)?;
 
-    let metrics: Vec<crate::metrics::Metric> = config
+    let metrics: Vec<crate::collector::Metric> = config
         .metrics
         .iter()
         .map(|m| {
-            let (parser, labels): (Box<dyn crate::parsers::Parser + Send + Sync>, _) =
-                match &m.parser {
-                    Parser::Regex {
-                        labels,
-                        value,
-                        pattern,
-                    } => (
-                        Box::new(crate::parsers::regex::RegexParser::new(
-                            pattern,
-                            labels.to_vec(),
-                            value.to_owned(),
-                        )),
-                        labels,
-                    ),
-                    Parser::Json { labels, value } => (
-                        Box::new(crate::parsers::json::JsonParser::new(
-                            labels.to_vec(),
-                            value.to_owned(),
-                        )),
-                        labels,
-                    ),
-                };
+            let parser: Box<dyn crate::parsers::Parser + Send + Sync> = match &m.parser {
+                Parser::Regex {
+                    labels,
+                    value,
+                    pattern,
+                } => Box::new(crate::parsers::regex::RegexParser::new(
+                    pattern,
+                    labels.to_vec(),
+                    value.to_owned(),
+                )),
+                Parser::Json { labels, value } => Box::new(crate::parsers::json::JsonParser::new(
+                    labels.to_vec(),
+                    value.to_owned(),
+                )),
+            };
 
             let mut pipeline_stages = Vec::new();
             if let Some(stages) = &m.pipeline_stages {
@@ -119,8 +112,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 })
                 .collect();
 
-            let mut builder =
-                crate::metrics::MetricBuilder::new(m.name.clone(), m.help.clone(), labels.to_vec());
+            let mut builder = crate::collector::MetricBuilder::new(m.name.clone(), m.help.clone());
             if let Some(v) = m.value {
                 builder.value(v);
             }
