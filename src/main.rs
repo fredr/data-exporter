@@ -2,6 +2,7 @@ use axum::{routing::get, Extension, Router};
 use clap::Parser;
 use data_exporter::DataMetrics;
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use tower_http::trace::TraceLayer;
 
 #[derive(Parser)]
 struct Opts {
@@ -35,9 +36,8 @@ async fn main() {
         .route("/healthz", get(healthz))
         .route("/metrics", get(collect_metrics))
         .layer(Extension(metrics))
-        .layer(Extension(prometheus_handler));
-
-    // TODO(fredr): add middleware to log all requests
+        .layer(Extension(prometheus_handler))
+        .layer(TraceLayer::new_for_http());
 
     let addr = opts.address.parse().expect("could not parse address");
     axum::Server::bind(&addr)
