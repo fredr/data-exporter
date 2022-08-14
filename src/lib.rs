@@ -1,5 +1,6 @@
 pub mod collector;
 pub mod config;
+pub mod log_filter;
 pub mod parsers;
 pub mod pipeline_stages;
 pub mod targets;

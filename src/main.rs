@@ -1,8 +1,12 @@
 use axum::{routing::get, Extension, Router};
 use clap::Parser;
+use data_exporter::log_filter::LogFilter;
 use data_exporter::DataMetrics;
 use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use tower_http::trace::TraceLayer;
+use tracing::{dispatcher, Dispatch, Level};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::{Layer, Registry};
 
 #[derive(Parser)]
 struct Opts {
@@ -11,18 +15,20 @@ struct Opts {
 
     #[clap(short, long, default_value = "localhost:9090")]
     address: String,
+
+    #[clap(short = 'L', long, default_value = "info")]
+    log_level: Level,
 }
 
 #[tokio::main]
 async fn main() {
     let opts = Opts::parse();
 
-    // Default log level
-    match std::env::var_os("RUST_LOG") {
-        Some(_) => (),
-        None => std::env::set_var("RUST_LOG", "info"),
-    }
-    env_logger::init();
+    let subscriber = Registry::default()
+        .with(tracing_logfmt::layer().with_filter(LogFilter::new(opts.log_level)));
+
+    dispatcher::set_global_default(Dispatch::new(subscriber))
+        .expect("failed setting up global dispatcher");
 
     let builder = PrometheusBuilder::new();
     let prometheus_handler = builder
