@@ -64,12 +64,12 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                     pattern,
                 } => Box::new(crate::parsers::regex::RegexParser::new(
                     pattern,
-                    labels.to_vec(),
-                    value.to_owned(),
+                    labels.clone(),
+                    value.clone(),
                 )),
                 Parser::Json { labels, value } => Box::new(crate::parsers::json::JsonParser::new(
-                    labels.to_vec(),
-                    value.to_owned(),
+                    labels.clone(),
+                    value.clone(),
                 )),
             };
 
