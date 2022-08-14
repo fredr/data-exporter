@@ -58,19 +58,19 @@ impl MetricBuilder {
         }
     }
     pub fn value(&mut self, v: f64) {
-        self.value = Some(v)
+        self.value = Some(v);
     }
     pub fn targets(&mut self, t: Vec<targets::Target>) {
-        self.targets.extend(t.into_iter())
+        self.targets.extend(t.into_iter());
     }
     pub fn parser(&mut self, p: Box<dyn crate::parsers::Parser + Sync + Send>) {
-        self.parser = Some(p)
+        self.parser = Some(p);
     }
     pub fn pipeline_stages(
         &mut self,
         ps: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
     ) {
-        self.pipeline_stages.extend(ps.into_iter())
+        self.pipeline_stages.extend(ps.into_iter());
     }
 
     pub fn build(self) -> Metric {
@@ -118,8 +118,7 @@ impl Metric {
                 labels.sort();
 
                 let value = match (parsed.value, self.value) {
-                    (Some(value), _) => Ok(value),
-                    (_, Some(value)) => Ok(value),
+                    (Some(value), _) | (_, Some(value)) => Ok(value),
                     (None, None) => Err(CollectError::MissingValue(String::from(
                         "expected either a constant or a parsed value",
                     ))),
