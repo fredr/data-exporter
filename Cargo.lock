@@ -1456,9 +1456,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-logfmt"
-version = "0.1.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84279937c873ce4274feaaee53e2c503fce2d703bd284eecf04a6b94d7389ae"
+checksum = "b57c13df2731f053ac85bb21769e252795f687a094c8c19c787dc59859123ff4"
 dependencies = [
  "time",
  "tracing",
