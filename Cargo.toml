@@ -5,7 +5,7 @@ edition = "2021"
 license-file = "LICENCE"
 
 [dependencies]
-axum = "0.5"
+axum = "0.6"
 clap = { version = "4.0", features = ["derive"] }
 futures = "0.3"
 jq-rs = { version = "0.4.1", features = ["bundled"] }
