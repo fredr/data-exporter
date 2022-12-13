@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use axum::{routing::get, Extension, Router};
 use clap::Parser;
 use data_exporter::log_filter::LogFilter;
@@ -13,8 +15,8 @@ struct Opts {
     #[clap(short, long, default_value = "config.yaml")]
     config: String,
 
-    #[clap(short, long, default_value = "localhost:9090")]
-    address: String,
+    #[clap(short, long, default_value = "127.0.0.1:9090")]
+    address: SocketAddr,
 
     #[clap(short = 'L', long, default_value = "info")]
     log_level: Level,
@@ -45,8 +47,8 @@ async fn main() {
         .layer(Extension(prometheus_handler))
         .layer(TraceLayer::new_for_http());
 
-    let addr = opts.address.parse().expect("could not parse address");
-    axum::Server::bind(&addr)
+    tracing::debug!("Server listening on {}", &opts.address);
+    axum::Server::bind(&opts.address)
         .serve(app.into_make_service())
         .await
         .expect("web server terminated");
