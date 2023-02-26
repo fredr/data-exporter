@@ -1,4 +1,4 @@
-FROM rust:1.65.0 as build
+FROM docker.io/rust:1.67.1 as build
 WORKDIR /app
 COPY . /app
 RUN cargo build --release
