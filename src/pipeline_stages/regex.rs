@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use super::PipelineStage;
 
 pub struct Stage {
@@ -6,8 +8,9 @@ pub struct Stage {
 }
 
 impl PipelineStage for Stage {
-    fn transform(&self, value: &str) -> String {
-        self.regex.replace_all(value, &self.replace).to_string()
+    type Error = Infallible;
+    fn transform(&self, value: &str) -> Result<String, Self::Error> {
+        Ok(self.regex.replace_all(value, &self.replace).to_string())
     }
 }
 
@@ -23,6 +26,6 @@ mod tests {
             regex: regex::Regex::new("are").unwrap(),
         };
 
-        assert_eq!(stage.transform(text), "This is text that is wrong");
+        assert_eq!(stage.transform(text).unwrap(), "This is text that is wrong");
     }
 }

@@ -3,6 +3,7 @@ use log::warn;
 use metrics::{gauge, increment_counter};
 
 use crate::parsers;
+use crate::pipeline_stages::PipelineError;
 use crate::targets;
 
 pub async fn collect(metrics: &[Metric]) {
@@ -26,6 +27,7 @@ enum CollectError {
     ParseError(parsers::ParseError),
     MissingValue(String),
     TargetError(targets::TargetError),
+    TransformerError(PipelineError),
 }
 impl From<parsers::ParseError> for CollectError {
     fn from(e: parsers::ParseError) -> Self {
@@ -44,7 +46,8 @@ pub struct MetricBuilder {
     value: Option<f64>,
     targets: Vec<targets::Target>,
     parser: Option<Box<dyn crate::parsers::Parser + Sync + Send>>,
-    pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
+    pipeline_stages:
+        Vec<Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>>,
 }
 impl MetricBuilder {
     pub fn new(name: String, help: String) -> MetricBuilder {
@@ -68,7 +71,9 @@ impl MetricBuilder {
     }
     pub fn pipeline_stages(
         &mut self,
-        ps: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
+        ps: Vec<
+            Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>,
+        >,
     ) {
         self.pipeline_stages.extend(ps.into_iter());
     }
@@ -91,17 +96,19 @@ pub struct Metric {
     pub value: Option<f64>,
     pub targets: Vec<targets::Target>,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
-    pub pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
+    pub pipeline_stages:
+        Vec<Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>>,
 }
 
 impl Metric {
     async fn collect(&self) -> Result<(), CollectError> {
         for target in &self.targets {
             let resp = target.fetch().await?;
-            let resp = self
-                .pipeline_stages
-                .iter()
-                .fold(resp, |acc, stage| stage.transform(&acc));
+            let resp = self.pipeline_stages.iter().try_fold(resp, |acc, stage| {
+                stage
+                    .transform(&acc)
+                    .map_err(CollectError::TransformerError)
+            })?;
 
             for parsed in self.parser.parse(&resp)? {
                 let mut labels: Vec<metrics::Label> = parsed

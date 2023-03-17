@@ -1,10 +1,12 @@
 use serde::Deserialize;
 use std::{fs::File, io::BufReader};
 
+use crate::pipeline_stages::{PipelineError, PipelineMapErr, PipelineStage};
+
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
-enum PipelineStage {
+enum PipelineStageType {
     Jq { query: String },
     Regex { pattern: String, replace: String },
 }
@@ -30,7 +32,7 @@ struct Metric {
     help: String,
     value: Option<f64>,
     targets: Vec<Target>,
-    pipeline_stages: Option<Vec<PipelineStage>>,
+    pipeline_stages: Option<Vec<PipelineStageType>>,
     parser: Parser,
 }
 
@@ -78,19 +80,21 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 pipeline_stages = stages
                     .iter()
                     .map(
-                        |s| -> Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> {
+                        |s| -> Box<
+                            dyn PipelineStage<Error = PipelineError> + Send + Sync + 'static,
+                        > {
                             match s {
-                                PipelineStage::Jq { query } => {
-                                    Box::new(crate::pipeline_stages::jq::Stage {
+                                PipelineStageType::Jq { query } => Box::new(PipelineMapErr::new(
+                                    crate::pipeline_stages::jq::Stage {
                                         expression: query.clone(),
-                                    })
-                                }
-                                PipelineStage::Regex { pattern, replace } => {
-                                    Box::new(crate::pipeline_stages::regex::Stage {
+                                    },
+                                )),
+                                PipelineStageType::Regex { pattern, replace } => Box::new(
+                                    PipelineMapErr::new(crate::pipeline_stages::regex::Stage {
                                         regex: regex::Regex::new(pattern).unwrap(),
                                         replace: replace.to_string(),
-                                    })
-                                }
+                                    }),
+                                ),
                             }
                         },
                     )
