@@ -1,4 +1,6 @@
-use std::{collections::HashMap, num::ParseFloatError};
+use std::{collections::HashMap, num::ParseFloatError, str::Utf8Error};
+
+use bytes::Bytes;
 
 pub mod json;
 pub mod regex;
@@ -9,6 +11,13 @@ pub enum ParseError {
     IncorrectType(String),
     MissingField(String),
     ParseFloat(ParseFloatError),
+    InvalidInput(Utf8Error),
+}
+
+impl From<Utf8Error> for ParseError {
+    fn from(e: Utf8Error) -> Self {
+        ParseError::InvalidInput(e)
+    }
 }
 
 impl From<serde_json::Error> for ParseError {
@@ -38,5 +47,5 @@ impl Parsed {
 }
 
 pub trait Parser {
-    fn parse(&self, data: &str) -> Result<Vec<Parsed>, ParseError>;
+    fn parse(&self, data: Bytes) -> Result<Vec<Parsed>, ParseError>;
 }

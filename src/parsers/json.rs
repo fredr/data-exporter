@@ -1,3 +1,5 @@
+use bytes::{Buf, Bytes};
+
 use super::{ParseError, Parsed};
 
 pub struct JsonParser {
@@ -6,8 +8,8 @@ pub struct JsonParser {
 }
 
 impl super::Parser for JsonParser {
-    fn parse(&self, data: &str) -> Result<Vec<Parsed>, ParseError> {
-        match serde_json::from_str(data)? {
+    fn parse(&self, data: Bytes) -> Result<Vec<Parsed>, ParseError> {
+        match serde_json::from_reader(data.reader())? {
             serde_json::Value::Array(arr) => arr
                 .iter()
                 .map(|v| match v {
@@ -67,42 +69,42 @@ mod tests {
     fn test_parse_labels_object() {
         let data = r#"{"label": "value"}"#;
         let p = JsonParser::new(vec![String::from("label")], None);
-        let parsed = p.parse(data).expect("could not parse data");
+        let parsed = p.parse(data.into()).expect("could not parse data");
         assert_eq!(parsed[0].labels.get("label"), Some(&String::from("value")));
     }
     #[test]
     fn test_parse_value_object() {
         let data = r#"{"val": 100}"#;
         let p = JsonParser::new(Vec::new(), Some(String::from("val")));
-        let parsed = p.parse(data).expect("could not parse data");
+        let parsed = p.parse(data.into()).expect("could not parse data");
         assert_eq!(parsed[0].value, Some(100f64));
     }
     #[test]
     fn test_error_parse_labels_object_missing_field() {
         let data = r#"{"label": "value"}"#;
         let p = JsonParser::new(vec![String::from("other")], None);
-        let parsed = p.parse(data);
+        let parsed = p.parse(data.into());
         assert!(matches!(parsed, Err(ParseError::MissingField(..))))
     }
     #[test]
     fn test_error_parse_labels_object_missing_value() {
         let data = r#"{"label": "value"}"#;
         let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
-        let parsed = p.parse(data);
+        let parsed = p.parse(data.into());
         assert!(matches!(parsed, Err(ParseError::MissingField(..))))
     }
     #[test]
     fn test_error_parse_labels_object_incorrect_value_type() {
         let data = r#"{"label": "value", "val": "string"}"#;
         let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
-        let parsed = p.parse(data);
+        let parsed = p.parse(data.into());
         assert!(matches!(parsed, Err(ParseError::IncorrectType(..))))
     }
     #[test]
     fn test_error_invalid_json() {
         let p = JsonParser::new(Vec::new(), None);
         assert!(matches!(
-            p.parse("not json"),
+            p.parse("not json".into()),
             Err(ParseError::InvalidJson(..))
         ));
     }
@@ -110,7 +112,7 @@ mod tests {
     fn test_error_incorrect_type() {
         let p = JsonParser::new(Vec::new(), None);
         assert!(matches!(
-            p.parse(r#""json string""#),
+            p.parse(r#""json string""#.into()),
             Err(ParseError::IncorrectType(..))
         ));
     }

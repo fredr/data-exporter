@@ -111,9 +111,6 @@ impl Metric {
                 .call(resp)
                 .map_err(CollectError::TransformerError)?;
 
-            // TODO: fix unwrap here, or just make sure that we send Bytes around
-            let resp = std::str::from_utf8(&resp).unwrap();
-
             for parsed in self.parser.parse(resp)? {
                 let mut labels: Vec<metrics::Label> = parsed
                     .labels
