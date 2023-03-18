@@ -11,17 +11,6 @@ pub trait Service {
     fn call(&self, input: Bytes) -> Result<Bytes, Self::Error>;
 }
 
-impl<'a, S> Service for &'a S
-where
-    S: Service + 'a,
-{
-    type Error = S::Error;
-
-    fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
-        (**self).call(input)
-    }
-}
-
 impl<S> Service for Box<S>
 where
     S: Service + ?Sized,
