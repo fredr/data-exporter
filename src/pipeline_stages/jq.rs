@@ -5,12 +5,12 @@ use thiserror::Error;
 
 use super::Service;
 
-pub struct Stage<S> {
+pub struct JqStage<S> {
     service: S,
     expression: String,
 }
 
-impl<S> Stage<S> {
+impl<S> JqStage<S> {
     pub fn new(service: S, expression: String) -> Self {
         Self {
             service,
@@ -27,7 +27,7 @@ pub enum JqStageError {
     Input(#[from] Utf8Error),
 }
 
-impl<S> Service for Stage<S>
+impl<S> Service for JqStage<S>
 where
     S: Service,
     S::Error: From<JqStageError>,

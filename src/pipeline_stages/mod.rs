@@ -5,25 +5,13 @@ use thiserror::Error;
 
 use self::{jq::JqStageError, regex::RegexStageError};
 
-pub trait Service {
-    type Error;
+mod jq;
+mod regex;
+mod service;
 
-    fn call(&self, input: Bytes) -> Result<Bytes, Self::Error>;
-}
-
-impl<S> Service for Box<S>
-where
-    S: Service + ?Sized,
-{
-    type Error = S::Error;
-
-    fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
-        (**self).call(input)
-    }
-}
-
-pub mod jq;
-pub mod regex;
+pub use self::regex::*;
+pub use jq::*;
+pub use service::Service;
 
 #[derive(Error, Debug)]
 pub enum PipelineError {

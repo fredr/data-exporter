@@ -5,13 +5,13 @@ use thiserror::Error;
 
 use super::Service;
 
-pub struct Stage<S> {
+pub struct RegexStage<S> {
     service: S,
     regex: regex::Regex,
     replace: String,
 }
 
-impl<S> Stage<S> {
+impl<S> RegexStage<S> {
     pub fn new(service: S, regex: regex::Regex, replace: String) -> Self {
         Self {
             service,
@@ -27,7 +27,7 @@ pub enum RegexStageError {
     Input(#[from] Utf8Error),
 }
 
-impl<S> Service for Stage<S>
+impl<S> Service for RegexStage<S>
 where
     S: Service,
     S::Error: From<RegexStageError>,
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_replace() {
         let text = Bytes::from(r#"This are text that are wrong"#);
-        let stage = Stage::new(NoopService, regex::Regex::new("are").unwrap(), "is".into());
+        let stage = RegexStage::new(NoopService, regex::Regex::new("are").unwrap(), "is".into());
 
         assert_eq!(stage.call(text).unwrap(), "This is text that is wrong");
     }

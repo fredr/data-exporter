@@ -82,14 +82,14 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 for stage in stages {
                     match stage {
                         PipelineStageType::Jq { query } => {
-                            pipeline_stages = Box::new(pipeline_stages::jq::Stage::<
+                            pipeline_stages = Box::new(pipeline_stages::JqStage::<
                                 Box<dyn Service<Error = PipelineError> + Sync + Send>,
                             >::new(
                                 pipeline_stages.into(), query.to_owned()
                             ));
                         }
                         PipelineStageType::Regex { pattern, replace } => {
-                            pipeline_stages = Box::new(pipeline_stages::regex::Stage::<
+                            pipeline_stages = Box::new(pipeline_stages::RegexStage::<
                                 Box<dyn Service<Error = PipelineError> + Sync + Send>,
                             >::new(
                                 pipeline_stages,
