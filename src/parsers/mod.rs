@@ -49,3 +49,12 @@ impl Parsed {
 pub trait Parser {
     fn parse(&self, data: Bytes) -> Result<Vec<Parsed>, ParseError>;
 }
+
+impl<P> Parser for Box<P>
+where
+    P: Parser + ?Sized,
+{
+    fn parse(&self, input: Bytes) -> Result<Vec<Parsed>, ParseError> {
+        (**self).parse(input)
+    }
+}

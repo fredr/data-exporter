@@ -1,7 +1,10 @@
 use serde::Deserialize;
 use std::{fs::File, io::BufReader};
 
-use crate::pipeline_stages::{self, Pipeline, PipelineError, Service};
+use crate::{
+    collector::MetricBuilder,
+    pipeline_stages::{self, Pipeline, PipelineError, Service},
+};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -116,14 +119,17 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 })
                 .collect();
 
-            let mut builder = crate::collector::MetricBuilder::new(m.name.clone(), m.help.clone());
+            let mut builder = MetricBuilder::new(m.name.clone(), m.help.clone());
             if let Some(v) = m.value {
-                builder.value(v);
+                builder = builder.value(v);
             }
-            builder.targets(targets);
-            builder.pipeline_stages(pipeline_stages);
-            builder.parser(parser);
-            builder.build()
+
+            let builder = builder.targets(targets);
+            let builder = builder.pipeline_stages(pipeline_stages);
+            let builder = builder.parser(parser);
+            let metric = builder.build();
+
+            metric
         })
         .collect();
 
