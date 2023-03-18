@@ -119,17 +119,12 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 })
                 .collect();
 
-            let mut builder = MetricBuilder::new(m.name.clone(), m.help.clone());
-            if let Some(v) = m.value {
-                builder = builder.value(v);
-            }
-
-            let builder = builder.targets(targets);
-            let builder = builder.pipeline_stages(pipeline_stages);
-            let builder = builder.parser(parser);
-            let metric = builder.build();
-
-            metric
+            MetricBuilder::new(m.name.clone(), m.help.clone())
+                .value(m.value)
+                .targets(targets)
+                .pipeline_stages(pipeline_stages)
+                .parser(parser)
+                .build()
         })
         .collect();
 

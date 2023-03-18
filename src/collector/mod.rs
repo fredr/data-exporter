@@ -112,11 +112,11 @@ impl<S> MetricBuilder<NoParser, S> {
 }
 
 impl<P, S> MetricBuilder<P, S> {
-    pub fn value(self, value: f64) -> Self {
+    pub fn value(self, value: Option<f64>) -> Self {
         Self {
             name: self.name,
             help: self.help,
-            value: Some(value),
+            value,
             targets: self.targets,
             parser: self.parser,
             pipeline_stages: self.pipeline_stages,
