@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use super::{ParseError, Parsed};
 
 pub struct RegexParser {
@@ -17,7 +19,8 @@ impl RegexParser {
 }
 
 impl super::Parser for RegexParser {
-    fn parse(&self, data: &str) -> Result<Vec<Parsed>, ParseError> {
+    fn parse(&self, data: Bytes) -> Result<Vec<Parsed>, ParseError> {
+        let data = std::str::from_utf8(&data)?;
         self.regex
             .captures_iter(data)
             .try_fold(Vec::new(), |mut acc, cap| {
@@ -61,7 +64,7 @@ mod tests {
         let pattern = r#"(?P<key>[a-z])=(?P<val>\d)"#;
 
         let parser = RegexParser::new(pattern, vec!["key".to_string()], Some("val".to_string()));
-        let parsed = parser.parse(text).unwrap();
+        let parsed = parser.parse(text.into()).unwrap();
 
         assert_eq!(parsed.len(), 4);
 

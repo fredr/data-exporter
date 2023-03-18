@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use tokio::io::AsyncReadExt;
 pub mod http;
 
@@ -30,14 +31,15 @@ impl Target {
             Self::File { path } => path,
         }
     }
-    pub async fn fetch(&self) -> Result<String, TargetError> {
+    pub async fn fetch(&self) -> Result<Bytes, TargetError> {
         match &self {
             Self::Http(config) => Ok(config.fetch().await?),
             Self::File { path } => {
                 let mut file = tokio::fs::File::open(path).await?;
-                let mut buffer = String::new();
-                file.read_to_string(&mut buffer).await?;
-                Ok(buffer)
+                let mut buffer = Vec::new();
+                file.read_to_end(&mut buffer).await?;
+
+                Ok(Bytes::from(buffer))
             }
         }
     }

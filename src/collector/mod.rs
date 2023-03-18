@@ -1,8 +1,10 @@
+use bytes::Bytes;
 use futures::StreamExt;
 use log::warn;
 use metrics::{gauge, increment_counter};
 
-use crate::parsers;
+use crate::parsers::{self, Parser};
+use crate::pipeline_stages::{PipelineError, Service};
 use crate::targets;
 
 pub async fn collect(metrics: &[Metric]) {
@@ -26,6 +28,7 @@ enum CollectError {
     ParseError(parsers::ParseError),
     MissingValue(String),
     TargetError(targets::TargetError),
+    TransformerError(PipelineError),
 }
 impl From<parsers::ParseError> for CollectError {
     fn from(e: parsers::ParseError) -> Self {
@@ -38,49 +41,113 @@ impl From<targets::TargetError> for CollectError {
     }
 }
 
-pub struct MetricBuilder {
+pub struct NoParser;
+impl Parser for NoParser {
+    fn parse(&self, _data: bytes::Bytes) -> Result<Vec<parsers::Parsed>, parsers::ParseError> {
+        Ok(Vec::new())
+    }
+}
+
+pub struct NoStages;
+impl Service for NoStages {
+    type Error = PipelineError;
+
+    fn call(&self, _input: bytes::Bytes) -> Result<bytes::Bytes, Self::Error> {
+        Ok(Bytes::new())
+    }
+}
+
+pub struct MetricBuilder<P, S> {
     name: String,
     help: String,
     value: Option<f64>,
     targets: Vec<targets::Target>,
-    parser: Option<Box<dyn crate::parsers::Parser + Sync + Send>>,
-    pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
+    parser: P,
+    pipeline_stages: S,
 }
-impl MetricBuilder {
-    pub fn new(name: String, help: String) -> MetricBuilder {
+
+impl MetricBuilder<NoParser, NoStages> {
+    pub fn new(name: String, help: String) -> MetricBuilder<NoParser, NoStages> {
         MetricBuilder {
             name,
             help,
             value: None,
             targets: Vec::new(),
-            parser: None,
-            pipeline_stages: Vec::new(),
+            parser: NoParser,
+            pipeline_stages: NoStages,
         }
     }
-    pub fn value(&mut self, v: f64) {
-        self.value = Some(v);
+}
+
+impl<P> MetricBuilder<P, NoStages> {
+    pub fn pipeline_stages<S>(self, stages: S) -> MetricBuilder<P, S>
+    where
+        S: Service<Error = PipelineError>,
+    {
+        MetricBuilder {
+            name: self.name,
+            help: self.help,
+            value: self.value,
+            targets: self.targets,
+            parser: self.parser,
+            pipeline_stages: stages,
+        }
     }
-    pub fn targets(&mut self, t: Vec<targets::Target>) {
-        self.targets.extend(t.into_iter());
+}
+
+impl<S> MetricBuilder<NoParser, S> {
+    pub fn parser<P>(self, parser: P) -> MetricBuilder<P, S>
+    where
+        S: Service<Error = PipelineError>,
+    {
+        MetricBuilder {
+            name: self.name,
+            help: self.help,
+            value: self.value,
+            targets: self.targets,
+            parser,
+            pipeline_stages: self.pipeline_stages,
+        }
     }
-    pub fn parser(&mut self, p: Box<dyn crate::parsers::Parser + Sync + Send>) {
-        self.parser = Some(p);
-    }
-    pub fn pipeline_stages(
-        &mut self,
-        ps: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
-    ) {
-        self.pipeline_stages.extend(ps.into_iter());
+}
+
+impl<P, S> MetricBuilder<P, S> {
+    pub fn value(self, value: Option<f64>) -> Self {
+        Self {
+            name: self.name,
+            help: self.help,
+            value,
+            targets: self.targets,
+            parser: self.parser,
+            pipeline_stages: self.pipeline_stages,
+        }
     }
 
+    pub fn targets(self, t: Vec<targets::Target>) -> Self {
+        Self {
+            name: self.name,
+            help: self.help,
+            value: self.value,
+            targets: t,
+            parser: self.parser,
+            pipeline_stages: self.pipeline_stages,
+        }
+    }
+}
+
+impl<P, S> MetricBuilder<P, S>
+where
+    P: Parser + Send + Sync + 'static,
+    S: Service<Error = PipelineError> + Send + Sync + 'static,
+{
     pub fn build(self) -> Metric {
         Metric {
             name: self.name,
             help: self.help,
             value: self.value,
             targets: self.targets,
-            parser: self.parser.unwrap(),
-            pipeline_stages: self.pipeline_stages,
+            parser: Box::new(self.parser),
+            pipeline_stages: Box::new(self.pipeline_stages),
         }
     }
 }
@@ -90,8 +157,8 @@ pub struct Metric {
     pub help: String,
     pub value: Option<f64>,
     pub targets: Vec<targets::Target>,
-    pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
-    pub pipeline_stages: Vec<Box<dyn crate::pipeline_stages::PipelineStage + Sync + Send>>,
+    pub parser: Box<dyn Parser + Send + Sync>,
+    pub pipeline_stages: Box<dyn Service<Error = PipelineError> + Send + Sync>,
 }
 
 impl Metric {
@@ -100,10 +167,10 @@ impl Metric {
             let resp = target.fetch().await?;
             let resp = self
                 .pipeline_stages
-                .iter()
-                .fold(resp, |acc, stage| stage.transform(&acc));
+                .call(resp)
+                .map_err(CollectError::TransformerError)?;
 
-            for parsed in self.parser.parse(&resp)? {
+            for parsed in self.parser.parse(resp)? {
                 let mut labels: Vec<metrics::Label> = parsed
                     .labels
                     .into_iter()

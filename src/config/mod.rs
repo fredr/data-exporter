@@ -1,10 +1,15 @@
 use serde::Deserialize;
 use std::{fs::File, io::BufReader};
 
+use crate::{
+    collector::MetricBuilder,
+    pipeline_stages::{self, Pipeline, PipelineError, Service},
+};
+
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type")]
-enum PipelineStage {
+enum PipelineStageType {
     Jq { query: String },
     Regex { pattern: String, replace: String },
 }
@@ -30,7 +35,7 @@ struct Metric {
     help: String,
     value: Option<f64>,
     targets: Vec<Target>,
-    pipeline_stages: Option<Vec<PipelineStage>>,
+    pipeline_stages: Option<Vec<PipelineStageType>>,
     parser: Parser,
 }
 
@@ -73,28 +78,30 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 )),
             };
 
-            let mut pipeline_stages = Vec::new();
+            let mut pipeline_stages: Box<dyn Service<Error = PipelineError> + Sync + Send> =
+                Box::new(Pipeline::new());
+
             if let Some(stages) = &m.pipeline_stages {
-                pipeline_stages = stages
-                    .iter()
-                    .map(
-                        |s| -> Box<dyn crate::pipeline_stages::PipelineStage + Send + Sync> {
-                            match s {
-                                PipelineStage::Jq { query } => {
-                                    Box::new(crate::pipeline_stages::jq::Stage {
-                                        expression: query.clone(),
-                                    })
-                                }
-                                PipelineStage::Regex { pattern, replace } => {
-                                    Box::new(crate::pipeline_stages::regex::Stage {
-                                        regex: regex::Regex::new(pattern).unwrap(),
-                                        replace: replace.to_string(),
-                                    })
-                                }
-                            }
-                        },
-                    )
-                    .collect();
+                for stage in stages {
+                    match stage {
+                        PipelineStageType::Jq { query } => {
+                            pipeline_stages = Box::new(pipeline_stages::JqStage::<
+                                Box<dyn Service<Error = PipelineError> + Sync + Send>,
+                            >::new(
+                                pipeline_stages, query.clone()
+                            ));
+                        }
+                        PipelineStageType::Regex { pattern, replace } => {
+                            pipeline_stages = Box::new(pipeline_stages::RegexStage::<
+                                Box<dyn Service<Error = PipelineError> + Sync + Send>,
+                            >::new(
+                                pipeline_stages,
+                                regex::Regex::new(pattern).unwrap(),
+                                replace.clone(),
+                            ));
+                        }
+                    }
+                }
             }
 
             let targets = m
@@ -112,14 +119,12 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 })
                 .collect();
 
-            let mut builder = crate::collector::MetricBuilder::new(m.name.clone(), m.help.clone());
-            if let Some(v) = m.value {
-                builder.value(v);
-            }
-            builder.targets(targets);
-            builder.pipeline_stages(pipeline_stages);
-            builder.parser(parser);
-            builder.build()
+            MetricBuilder::new(m.name.clone(), m.help.clone())
+                .value(m.value)
+                .targets(targets)
+                .pipeline_stages(pipeline_stages)
+                .parser(parser)
+                .build()
         })
         .collect();
 
