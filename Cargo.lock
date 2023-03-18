@@ -213,6 +213,7 @@ name = "data-exporter"
 version = "0.4.2"
 dependencies = [
  "axum",
+ "bytes",
  "clap",
  "futures",
  "jq-rs",
@@ -224,6 +225,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "thiserror",
  "tokio",
  "tower-http",
  "tracing",

@@ -30,6 +30,7 @@ impl Target {
             Self::File { path } => path,
         }
     }
+    // TODO: retrn bytes::Bytes
     pub async fn fetch(&self) -> Result<String, TargetError> {
         match &self {
             Self::Http(config) => Ok(config.fetch().await?),

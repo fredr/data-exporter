@@ -1,16 +1,46 @@
-use std::convert::Infallible;
+use std::str::Utf8Error;
 
-use super::PipelineStage;
+use bytes::Bytes;
+use thiserror::Error;
 
-pub struct Stage {
-    pub regex: regex::Regex,
-    pub replace: String,
+use super::Service;
+
+pub struct Stage<S> {
+    service: S,
+    regex: regex::Regex,
+    replace: String,
 }
 
-impl PipelineStage for Stage {
-    type Error = Infallible;
-    fn transform(&self, value: &str) -> Result<String, Self::Error> {
-        Ok(self.regex.replace_all(value, &self.replace).to_string())
+impl<S> Stage<S> {
+    pub fn new(service: S, regex: regex::Regex, replace: String) -> Self {
+        Self {
+            service,
+            regex,
+            replace,
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum RegexStageError {
+    #[error("invalid input")]
+    Input(#[from] Utf8Error),
+}
+
+impl<S> Service for Stage<S>
+where
+    S: Service,
+    S::Error: From<RegexStageError>,
+{
+    type Error = S::Error;
+
+    fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
+        let input = std::str::from_utf8(&input).map_err(Into::into)?;
+        let result = self.regex.replace_all(&input, &self.replace);
+
+        let bytes = Bytes::from(result.into_owned());
+
+        self.service.call(bytes)
     }
 }
 
@@ -18,14 +48,20 @@ impl PipelineStage for Stage {
 mod tests {
     use super::*;
 
+    struct NoopService;
+    impl Service for NoopService {
+        type Error = RegexStageError;
+
+        fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
+            Ok(input)
+        }
+    }
+
     #[test]
     fn test_replace() {
-        let text = r#"This are text that are wrong"#;
-        let stage = Stage {
-            replace: "is".into(),
-            regex: regex::Regex::new("are").unwrap(),
-        };
+        let text = Bytes::from(r#"This are text that are wrong"#);
+        let stage = Stage::new(NoopService, regex::Regex::new("are").unwrap(), "is".into());
 
-        assert_eq!(stage.transform(text).unwrap(), "This is text that is wrong");
+        assert_eq!(stage.call(text).unwrap(), "This is text that is wrong");
     }
 }

@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::{fs::File, io::BufReader};
 
-use crate::pipeline_stages::{PipelineError, PipelineMapErr, PipelineStage};
+use crate::pipeline_stages::{self, Pipeline, PipelineError, Service};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -75,30 +75,30 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                 )),
             };
 
-            let mut pipeline_stages = Vec::new();
+            let mut pipeline_stages: Box<dyn Service<Error = PipelineError> + Sync + Send> =
+                Box::new(Pipeline::new());
+
             if let Some(stages) = &m.pipeline_stages {
-                pipeline_stages = stages
-                    .iter()
-                    .map(
-                        |s| -> Box<
-                            dyn PipelineStage<Error = PipelineError> + Send + Sync + 'static,
-                        > {
-                            match s {
-                                PipelineStageType::Jq { query } => Box::new(PipelineMapErr::new(
-                                    crate::pipeline_stages::jq::Stage {
-                                        expression: query.clone(),
-                                    },
-                                )),
-                                PipelineStageType::Regex { pattern, replace } => Box::new(
-                                    PipelineMapErr::new(crate::pipeline_stages::regex::Stage {
-                                        regex: regex::Regex::new(pattern).unwrap(),
-                                        replace: replace.to_string(),
-                                    }),
-                                ),
-                            }
-                        },
-                    )
-                    .collect();
+                for stage in stages {
+                    match stage {
+                        PipelineStageType::Jq { query } => {
+                            pipeline_stages = Box::new(pipeline_stages::jq::Stage::<
+                                Box<dyn Service<Error = PipelineError> + Sync + Send>,
+                            >::new(
+                                pipeline_stages.into(), query.to_owned()
+                            ));
+                        }
+                        PipelineStageType::Regex { pattern, replace } => {
+                            pipeline_stages = Box::new(pipeline_stages::regex::Stage::<
+                                Box<dyn Service<Error = PipelineError> + Sync + Send>,
+                            >::new(
+                                pipeline_stages,
+                                regex::Regex::new(pattern).unwrap(),
+                                replace.to_owned(),
+                            ));
+                        }
+                    }
+                }
             }
 
             let targets = m

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use futures::StreamExt;
 use log::warn;
 use metrics::{gauge, increment_counter};
@@ -45,9 +46,11 @@ pub struct MetricBuilder {
     help: String,
     value: Option<f64>,
     targets: Vec<targets::Target>,
+
+    // TODO: maybe these can be non-option
     parser: Option<Box<dyn crate::parsers::Parser + Sync + Send>>,
     pipeline_stages:
-        Vec<Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>>,
+        Option<Box<dyn crate::pipeline_stages::Service<Error = PipelineError> + Sync + Send>>,
 }
 impl MetricBuilder {
     pub fn new(name: String, help: String) -> MetricBuilder {
@@ -57,7 +60,7 @@ impl MetricBuilder {
             value: None,
             targets: Vec::new(),
             parser: None,
-            pipeline_stages: Vec::new(),
+            pipeline_stages: None,
         }
     }
     pub fn value(&mut self, v: f64) {
@@ -71,11 +74,9 @@ impl MetricBuilder {
     }
     pub fn pipeline_stages(
         &mut self,
-        ps: Vec<
-            Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>,
-        >,
+        stages: Box<dyn crate::pipeline_stages::Service<Error = PipelineError> + Sync + Send>,
     ) {
-        self.pipeline_stages.extend(ps.into_iter());
+        self.pipeline_stages = Some(stages);
     }
 
     pub fn build(self) -> Metric {
@@ -84,8 +85,10 @@ impl MetricBuilder {
             help: self.help,
             value: self.value,
             targets: self.targets,
+
+            // TODO: this should not be unwrap
             parser: self.parser.unwrap(),
-            pipeline_stages: self.pipeline_stages,
+            pipeline_stages: self.pipeline_stages.unwrap(),
         }
     }
 }
@@ -97,20 +100,22 @@ pub struct Metric {
     pub targets: Vec<targets::Target>,
     pub parser: Box<dyn crate::parsers::Parser + Sync + Send>,
     pub pipeline_stages:
-        Vec<Box<dyn crate::pipeline_stages::PipelineStage<Error = PipelineError> + Sync + Send>>,
+        Box<dyn crate::pipeline_stages::Service<Error = PipelineError> + Sync + Send>,
 }
 
 impl Metric {
     async fn collect(&self) -> Result<(), CollectError> {
         for target in &self.targets {
             let resp = target.fetch().await?;
-            let resp = self.pipeline_stages.iter().try_fold(resp, |acc, stage| {
-                stage
-                    .transform(&acc)
-                    .map_err(CollectError::TransformerError)
-            })?;
+            let resp = self
+                .pipeline_stages
+                .call(Bytes::from(resp))
+                .map_err(CollectError::TransformerError)?;
 
-            for parsed in self.parser.parse(&resp)? {
+            // TODO: fix unwrap here, or just make sure that we send Bytes around
+            let resp = std::str::from_utf8(&resp).unwrap();
+
+            for parsed in self.parser.parse(resp)? {
                 let mut labels: Vec<metrics::Label> = parsed
                     .labels
                     .into_iter()
