@@ -105,7 +105,7 @@ impl<S> MetricBuilder<NoParser, S> {
             help: self.help,
             value: self.value,
             targets: self.targets,
-            parser: parser,
+            parser,
             pipeline_stages: self.pipeline_stages,
         }
     }

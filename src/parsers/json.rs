@@ -84,21 +84,21 @@ mod tests {
         let data = r#"{"label": "value"}"#;
         let p = JsonParser::new(vec![String::from("other")], None);
         let parsed = p.parse(data.into());
-        assert!(matches!(parsed, Err(ParseError::MissingField(..))))
+        assert!(matches!(parsed, Err(ParseError::MissingField(..))));
     }
     #[test]
     fn test_error_parse_labels_object_missing_value() {
         let data = r#"{"label": "value"}"#;
         let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
         let parsed = p.parse(data.into());
-        assert!(matches!(parsed, Err(ParseError::MissingField(..))))
+        assert!(matches!(parsed, Err(ParseError::MissingField(..))));
     }
     #[test]
     fn test_error_parse_labels_object_incorrect_value_type() {
         let data = r#"{"label": "value", "val": "string"}"#;
         let p = JsonParser::new(vec![String::from("label")], Some(String::from("val")));
         let parsed = p.parse(data.into());
-        assert!(matches!(parsed, Err(ParseError::IncorrectType(..))))
+        assert!(matches!(parsed, Err(ParseError::IncorrectType(..))));
     }
     #[test]
     fn test_error_invalid_json() {
