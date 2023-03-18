@@ -85,7 +85,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                             pipeline_stages = Box::new(pipeline_stages::JqStage::<
                                 Box<dyn Service<Error = PipelineError> + Sync + Send>,
                             >::new(
-                                pipeline_stages.into(), query.to_owned()
+                                pipeline_stages, query.clone()
                             ));
                         }
                         PipelineStageType::Regex { pattern, replace } => {
@@ -94,7 +94,7 @@ pub fn parse(path: String) -> serde_yaml::Result<crate::DataMetrics> {
                             >::new(
                                 pipeline_stages,
                                 regex::Regex::new(pattern).unwrap(),
-                                replace.to_owned(),
+                                replace.clone(),
                             ));
                         }
                     }

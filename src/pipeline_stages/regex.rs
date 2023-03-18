@@ -36,7 +36,7 @@ where
 
     fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
         let input = std::str::from_utf8(&input).map_err(Into::into)?;
-        let result = self.regex.replace_all(&input, &self.replace);
+        let result = self.regex.replace_all(input, &self.replace);
 
         let bytes = Bytes::from(result.into_owned());
 

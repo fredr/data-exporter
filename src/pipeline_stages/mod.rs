@@ -21,6 +21,7 @@ pub enum PipelineError {
     Regex(#[from] RegexStageError),
 }
 
+#[derive(Default)]
 pub struct Pipeline;
 impl Pipeline {
     pub fn new() -> Self {
