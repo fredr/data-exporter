@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use futures::StreamExt;
 use log::warn;
 use metrics::{gauge, increment_counter};
@@ -109,7 +108,7 @@ impl Metric {
             let resp = target.fetch().await?;
             let resp = self
                 .pipeline_stages
-                .call(Bytes::from(resp))
+                .call(resp)
                 .map_err(CollectError::TransformerError)?;
 
             // TODO: fix unwrap here, or just make sure that we send Bytes around
