@@ -46,21 +46,18 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::pipeline_stages::Pipeline;
+
     use super::*;
-
-    struct NoopService;
-    impl Service for NoopService {
-        type Error = RegexStageError;
-
-        fn call(&self, input: Bytes) -> Result<Bytes, Self::Error> {
-            Ok(input)
-        }
-    }
 
     #[test]
     fn test_replace() {
         let text = Bytes::from(r#"This are text that are wrong"#);
-        let stage = RegexStage::new(NoopService, regex::Regex::new("are").unwrap(), "is".into());
+        let stage = RegexStage::new(
+            Pipeline::new(),
+            regex::Regex::new("are").unwrap(),
+            "is".into(),
+        );
 
         assert_eq!(stage.call(text).unwrap(), "This is text that is wrong");
     }
